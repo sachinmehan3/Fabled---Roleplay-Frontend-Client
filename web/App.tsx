@@ -11,6 +11,17 @@ import { CharacterGallery } from '@/components/character-gallery';
 import { EmptyState } from '@/components/empty-state';
 import { SettingsDialog, type SettingsTab } from '@/components/settings-dialog';
 
+const LAST_OPEN_KEY = 'rp-last-open';
+
+function readLastOpen(): { characterId: number; chatId: number } | null {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LAST_OPEN_KEY) ?? 'null');
+    return typeof saved?.characterId === 'number' && typeof saved?.chatId === 'number' ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
 export function App() {
   const confirm = useConfirm();
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -58,20 +69,39 @@ export function App() {
     [],
   );
 
+  const refreshChats = useCallback(async (charId: number) => {
+    const list = await api.listChats(charId);
+    setChats(list);
+    return list;
+  }, []);
+
   useEffect(() => {
     run(async () => {
       const [s, cs] = await Promise.all([api.getSettings(), api.listCharacters()]);
       setSettings(s);
       setCharacters(cs);
       if (!s.model) setSettingsOpen(true);
-    })();
-  }, [run]);
 
-  const refreshChats = useCallback(async (charId: number) => {
-    const list = await api.listChats(charId);
-    setChats(list);
-    return list;
-  }, []);
+      // Reopen the chat from last time, as long as it is still there.
+      const last = readLastOpen();
+      if (!last || !cs.some((c) => c.id === last.characterId)) return;
+      const list = await refreshChats(last.characterId);
+      setCharacterId(last.characterId);
+      const chat = list.find((c) => c.id === last.chatId) ?? list[0];
+      if (chat) setChatId(chat.id);
+    })();
+  }, [run, refreshChats]);
+
+  // Only ever written, never cleared: a stale entry is ignored on the way back in,
+  // and clearing it would race with the restore above on a fresh load.
+  useEffect(() => {
+    if (!characterId || !chatId) return;
+    try {
+      localStorage.setItem(LAST_OPEN_KEY, JSON.stringify({ characterId, chatId }));
+    } catch {
+      /* storage unavailable */
+    }
+  }, [characterId, chatId]);
 
   const openCharacter = async (id: number) => {
     setCharacterId(id);
@@ -190,8 +220,17 @@ export function App() {
         }}
       />
 
-      {/* Desktop sidebar */}
-      <AppSidebar {...sidebarProps} onClose={() => setRailOpen(false)} className={cn(railOpen ? 'hidden md:flex' : 'hidden')} />
+      {/* Desktop sidebar. The wrapper animates its width while the panel inside keeps
+          its own, so the contents slide out of view instead of reflowing. */}
+      <div
+        className={cn(
+          'hidden shrink-0 overflow-hidden transition-[width] duration-200 ease-out motion-reduce:transition-none md:block',
+          railOpen ? 'w-72' : 'w-0',
+        )}
+        inert={!railOpen}
+      >
+        <AppSidebar {...sidebarProps} onClose={() => setRailOpen(false)} />
+      </div>
 
       {/* Mobile sidebar (slide-over) */}
       <div
@@ -200,13 +239,13 @@ export function App() {
         aria-hidden={!sidebarOpen}
       >
         <div
-          className={cn('absolute inset-0 bg-black/50 transition-opacity', sidebarOpen ? 'opacity-100' : 'opacity-0')}
+          className={cn('absolute inset-0 bg-black/50 transition-opacity motion-reduce:transition-none', sidebarOpen ? 'opacity-100' : 'opacity-0')}
           onClick={() => setSidebarOpen(false)}
         />
         <AppSidebar
           {...sidebarProps}
           className={cn(
-            'absolute inset-y-0 left-0 shadow-xl transition-transform duration-200',
+            'absolute inset-y-0 left-0 shadow-xl transition-transform duration-200 motion-reduce:transition-none',
             sidebarOpen ? 'translate-x-0' : '-translate-x-full',
           )}
         />
