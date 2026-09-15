@@ -78,9 +78,24 @@ Writes go through a temp file and a rename, so an interrupted write can't leave 
 
 **Coming from the SQLite version?** Leave your old `data/rp.db` where it is and start the server: it imports characters, chats, messages and settings into the new files on first run, keeping the original timestamps, and never writes to the database. Once you've checked everything arrived, delete `rp.db*` and `server/migrate-sqlite.ts`.
 
+## Tests
+
+```bash
+npm test          # node --test, no test framework to install
+npm run typecheck
+npm run check     # both
+```
+
+The suite covers the parts where a quiet bug does real damage: the prompt
+builder's context budget and trimming, Tavern card normalization and the PNG
+`tEXt` reader, the file store (including prompt sidecars, cascading deletes and
+a torn JSONL line), and the markdown sanitiser - which is the only thing between
+untrusted card or model text and `dangerouslySetInnerHTML`.
+
 ## Layout
 
 ```
+tests/              node:test suites for the logic above
 server/
   index.ts          routes + SSE generation endpoint
   store.ts          JSON/JSONL storage, settings, generation records
