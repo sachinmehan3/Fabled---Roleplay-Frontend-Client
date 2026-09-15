@@ -1,0 +1,95 @@
+// Prompt builder: turns card + settings + chat history into an OpenAI-style message list,
+// trimming the oldest history so everything fits in the context window.
+import type { CharacterCard } from './cards.ts';
+import type { Settings } from './store.ts';
+
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+/**
+ * Rough token estimate (~3.5 chars per token for English).
+ * Swap in a real tokenizer (e.g. `gpt-tokenizer` or `@huggingface/transformers`) for accuracy.
+ */
+export function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 3.5) + 4; // +4 per-message overhead
+}
+
+/** Replace {{char}}, {{user}} and legacy <BOT>/<USER> placeholders. */
+export function applyMacros(text: string, charName: string, userName: string): string {
+  return text
+    .replace(/\{\{char\}\}|<BOT>/gi, charName)
+    .replace(/\{\{user\}\}|<USER>/gi, userName);
+}
+
+export interface BuiltPrompt {
+  messages: ChatMessage[];
+  usedHistory: number;
+  estimatedTokens: number;
+  /** Tokens that were left for chat history after the fixed parts were counted. */
+  historyBudget: number;
+  /** Whether the system prompt came from the card or from Settings. */
+  systemSource: 'card' | 'default';
+  usedOriginalMacro: boolean;
+  hasPostHistory: boolean;
+}
+
+export function buildPrompt(
+  card: CharacterCard,
+  settings: Settings,
+  history: { role: 'user' | 'assistant'; content: string }[],
+): BuiltPrompt {
+  const m = (t: string) => applyMacros(t, card.name, settings.userName).trim();
+
+  // The card's own system prompt overrides the global one; {{original}} inserts the global one.
+  const baseSystem = card.system_prompt
+    ? card.system_prompt.replace(/\{\{original\}\}/gi, settings.systemPrompt)
+    : settings.systemPrompt;
+
+  const sections = [
+    m(baseSystem),
+    card.description && `<character name="${card.name}">\n${m(card.description)}\n</character>`,
+    card.personality && `${card.name}'s personality: ${m(card.personality)}`,
+    // The user card (Settings -> User) describes who {{user}} is in the scene.
+    settings.userDescription.trim() &&
+      `<user name="${settings.userName}">\n${m(settings.userDescription)}\n</user>`,
+    card.scenario && `Scenario: ${m(card.scenario)}`,
+    card.mes_example && `Example dialogue (style reference only):\n${m(card.mes_example.replace(/<START>/gi, '---'))}`,
+  ].filter(Boolean);
+
+  const system: ChatMessage = { role: 'system', content: sections.join('\n\n') };
+  const postHistory: ChatMessage | null = card.post_history_instructions
+    ? { role: 'system', content: m(card.post_history_instructions) }
+    : null;
+
+  // Budget for history = context - reply - fixed parts.
+  const historyBudget =
+    settings.contextSize -
+    settings.maxTokens -
+    estimateTokens(system.content) -
+    (postHistory ? estimateTokens(postHistory.content) : 0);
+  let budget = historyBudget;
+
+  // Walk backwards from the newest message, keeping as many as fit.
+  const kept: ChatMessage[] = [];
+  for (let i = history.length - 1; i >= 0; i--) {
+    const msg = { role: history[i].role, content: m(history[i].content) };
+    const cost = estimateTokens(msg.content);
+    if (cost > budget) break;
+    budget -= cost;
+    kept.unshift(msg);
+  }
+
+  const messages = [system, ...kept, ...(postHistory ? [postHistory] : [])];
+  const estimatedTokens = messages.reduce((n, x) => n + estimateTokens(x.content), 0);
+  return {
+    messages,
+    usedHistory: kept.length,
+    estimatedTokens,
+    historyBudget,
+    systemSource: card.system_prompt ? 'card' : 'default',
+    usedOriginalMacro: /\{\{original\}\}/i.test(card.system_prompt),
+    hasPostHistory: !!postHistory,
+  };
+}

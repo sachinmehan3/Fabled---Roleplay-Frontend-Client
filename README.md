@@ -1,0 +1,135 @@
+# Fabled
+
+A minimal, hackable roleplay chat frontend in the spirit of SillyTavern.
+
+- **Streaming chat** with any OpenAI-compatible API: OpenRouter, Ollama, LM Studio, KoboldCpp, llama.cpp, vLLM, OpenAI
+- **Clean shadcn/ui interface:** light and dark themes, works on phones, character search, toast notifications
+- **Character cards:** import Tavern Card V1/V2/V3 as PNG or JSON; alternate greetings become swipes
+- **Character editor:** write a card from scratch or edit any imported one, avatar included
+- **User card:** your own name, persona and picture, on their own Settings tab; the persona is sent with every prompt
+- **Expandable profiles:** click any avatar or name to see the full card picture and its fields
+- **Swipes:** step through past replies, or press › on the latest reply to generate a new version
+- **Edit, copy, regenerate, delete (with confirmation) and Stop:** if you stop a reply midway, the partial text is kept
+- **Prompt builder** with `{{char}}` / `{{user}}` macros, card system prompt override (`{{original}}`), post-history instructions and a context budget that drops the oldest messages first
+- **Generation details:** every reply keeps a record - the prompt exactly as sent, how much of the history fit, token counts, timings and why the model stopped
+- **Safe markdown:** raw HTML from cards or models is escaped, and only http(s)/mailto links are allowed. `"dialogue"` is highlighted and `*actions*` are italicised
+- **Private API key:** it's stored server-side and never sent to the browser
+- **Plain-file storage:** JSON and JSONL you can read, diff and edit by hand - no database
+
+## Stack
+
+| Layer | Choice |
+|---|---|
+| UI | React 19 + TypeScript, Vite, **Tailwind CSS v4**, **shadcn/ui** (new-york style, zinc + violet), lucide icons, sonner toasts |
+| Markdown | `marked` with custom safe renderers |
+| Server | Node 22.18+ (`node:http`, native TS type stripping); **no runtime dependencies** |
+| Storage | JSON + JSONL files under `data/` (see below) |
+
+The UI has light and dark themes. Use the sun/moon button to switch; dark is the default. To change the look, edit the colors in `web/index.css`. You can use the [shadcn theme builder](https://ui.shadcn.com/themes) and paste its `:root` / `.dark` blocks there.
+
+`components.json` is already set up, so you can add more shadcn components with:
+
+```bash
+npx shadcn@latest add sheet select command
+```
+
+## Run it
+
+Requires **Node 22.18 or newer** (Node 24 LTS recommended).
+
+```bash
+npm install
+npm run dev          # server on :3001 + Vite on :5173
+```
+
+Open http://localhost:5173, then:
+
+1. Pick a provider in **Settings**, add your key if the provider needs one, then click **Fetch models** and choose a model.
+2. Click **New character** to write a card yourself, or the upload button beside it to import one (`.png` or `.json`). A sample card is in `samples/lyra.card.png`.
+3. Fill in your own name and persona under **Settings -> User**, then start chatting.
+
+Production build (one process serves both the UI and the API):
+
+```bash
+npm run build
+npm start            # http://localhost:3001
+```
+
+The server only listens on `127.0.0.1` by default, because it holds your API key. Set `HOST=0.0.0.0` only on a network you trust. Other environment variables: `PORT` and `RP_DATA_DIR`.
+
+## Your data
+
+Everything is kept in plain files under `data/` (or `RP_DATA_DIR`), so you can read it, grep it, diff it in git, or edit it in any text editor while the server is stopped:
+
+```
+data/
+  settings.json              provider, model, sampling, your user card - and your API key
+  characters.json            every character card
+  chats.json                 one line per chat: which character, title, message count
+  counters.json              the next id for each kind of record
+  chats/12.jsonl             the chat log - one JSON message per line, appended as you talk
+  chats/12.prompts.jsonl     the prompt behind each generated reply, appended and never rewritten
+  avatars/                   character and user pictures
+```
+
+Prompts are kept beside the log rather than inside it. They are by far the largest thing stored, and the log itself is rewritten whenever you edit or swipe a message - keeping them apart leaves the chat log small and readable.
+
+Writes go through a temp file and a rename, so an interrupted write can't leave a half-written file behind. `settings.json` holds your API key in plain text, exactly as the old database did - it never leaves the machine, but don't commit it.
+
+**Coming from the SQLite version?** Leave your old `data/rp.db` where it is and start the server: it imports characters, chats, messages and settings into the new files on first run, keeping the original timestamps, and never writes to the database. Once you've checked everything arrived, delete `rp.db*` and `server/migrate-sqlite.ts`.
+
+## Layout
+
+```
+server/
+  index.ts          routes + SSE generation endpoint
+  store.ts          JSON/JSONL storage, settings, generation records
+  migrate-sqlite.ts one-time import of an older data/rp.db
+  cards.ts          PNG tEXt chunk reader, card normalization
+  prompt.ts         prompt builder, macros, context trimming
+  llm.ts            OpenAI-compatible streaming client
+web/
+  App.tsx           app state + layout
+  api.ts            REST client + SSE reader
+  markdown.ts       safe markdown renderer
+  index.css         Tailwind + theme tokens + chat typography
+  hooks/            use-theme (light/dark), use-confirm (promise-based AlertDialog)
+  components/
+    app-sidebar.tsx     characters, search, chats, settings, theme toggle
+    chat-view.tsx       header, message list, composer, profile dialogs
+    message-item.tsx    message, hover toolbar, swipes, inline edit
+    character-dialog.tsx  create or edit a card (profile / chat / prompt tabs)
+    profile-dialog.tsx    the expanded card behind an avatar
+    generation-dialog.tsx what happened when a reply was generated
+    avatar-picker.tsx     shared picture picker for cards and the user
+    settings-dialog.tsx connection / user / generation / prompt tabs
+    empty-state.tsx     first-run checklist
+    ui/                 shadcn/ui components
+```
+
+## API
+
+| Method | Path | |
+|---|---|---|
+| GET/PUT | `/api/settings` | the key is write-only |
+| GET | `/api/models` | proxied from the provider |
+| GET | `/api/characters` | |
+| POST | `/api/characters/import` | raw PNG/JSON bytes in the body |
+| POST | `/api/characters` | a card as JSON, from the in-app editor |
+| PUT/DELETE | `/api/characters/:id` | |
+| POST/DELETE | `/api/characters/:id/avatar` | raw image bytes (PNG/JPEG/WebP/GIF) |
+| POST/DELETE | `/api/user/avatar` | the same, for your user card |
+| GET/POST | `/api/characters/:id/chats` | |
+| DELETE | `/api/chats/:id` | |
+| GET/POST | `/api/chats/:id/messages` | |
+| PATCH/DELETE | `/api/messages/:id` | `{content}` or `{swipe_index}` |
+| GET | `/api/messages/:id/meta/:swipe` | the generation record for one version, with its prompt |
+| POST | `/api/chats/:id/generate` | `{mode: "new" \| "swipe"}` → SSE `{delta}` … `{done, message}` |
+
+## Next steps
+
+- **Accurate token counts:** replace `estimateTokens` in `server/prompt.ts` with a real tokenizer. Generation details already show the provider's own counts next to the estimate, so you can see how far off it is
+- **Lorebooks / world info:** add a `lorebooks` table, scan the last N messages for keywords in `buildPrompt`, and insert the matching entries
+- **PNG card export:** write the edited card back into a `chara` chunk so it can be shared
+- **Multiple personas, group chats, regex scripts, presets, themes**
+- **Native Claude / Gemini adapters** alongside `server/llm.ts`

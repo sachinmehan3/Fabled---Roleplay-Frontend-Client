@@ -1,0 +1,209 @@
+// Streaming client for any OpenAI-compatible /chat/completions endpoint
+// (OpenRouter, Ollama, llama.cpp, KoboldCpp, LM Studio, vLLM, OpenAI, ...).
+import type { Settings, TokenUsage } from './store.ts';
+import type { ChatMessage } from './prompt.ts';
+
+function baseUrl(s: Settings) {
+  return s.apiBase.replace(/\/+$/, '');
+}
+
+/** fetch() with a friendlier error when the server can't be reached at all. */
+async function request(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch (e) {
+    const err = e as Error;
+    if (err.name === 'AbortError') throw err; // the user pressed Stop
+    if (err.name === 'TimeoutError') throw new Error(`No response from ${url} within 20 seconds.`);
+    throw new Error(`Could not reach ${url}. Is the server running and the URL correct?`);
+  }
+}
+
+/**
+ * Turn a failed response into something a person can act on: what the status
+ * usually means, followed by whatever the provider itself said.
+ */
+async function failure(res: Response): Promise<Error> {
+  const raw = (await res.text().catch(() => '')).trim();
+  let detail = raw;
+  try {
+    const json = JSON.parse(raw);
+    detail = String(json?.error?.message ?? json?.message ?? json?.error?.code ?? raw);
+  } catch {
+    if (detail.startsWith('<')) detail = ''; // an HTML error page tells nobody anything
+  }
+  const hint =
+    res.status === 401 || res.status === 403
+      ? 'the API key was rejected or is missing'
+      : res.status === 404
+        ? 'not found - check the base URL ends in /v1, and that the model id exists'
+        : res.status === 429
+          ? 'rate limited, or the account is out of credit'
+          : res.status === 413
+            ? 'the request was too large - lower the context size'
+            : res.status >= 500
+              ? 'the provider is having trouble at their end'
+              : res.statusText;
+  return new Error(
+    [`API error ${res.status}`, hint, detail.slice(0, 300)].filter(Boolean).join(' - '),
+  );
+}
+
+/** JSON body, with a clear message when the endpoint answers with something else. */
+async function readJson(res: Response): Promise<any> {
+  const text = await res.text().catch(() => '');
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(
+      `The provider answered with ${text.trim().startsWith('<') ? 'an HTML page' : 'something that is not JSON'}. ` +
+        'Is the base URL an OpenAI-compatible endpoint ending in /v1?',
+    );
+  }
+}
+
+function headers(s: Settings): Record<string, string> {
+  const h: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (s.apiKey) h.Authorization = `Bearer ${s.apiKey}`;
+  // Optional OpenRouter attribution headers (ignored by other providers).
+  h['HTTP-Referer'] = 'http://localhost';
+  h['X-Title'] = 'Fabled';
+  return h;
+}
+
+/** Facts about the response that only the stream knows; filled in as it is read. */
+export interface StreamReport {
+  modelReported?: string;
+  finishReason?: string;
+  usage?: TokenUsage;
+  /** True when the provider rejected the optional fields and we resent without them. */
+  extrasDropped?: boolean;
+}
+
+const EFFORTS = ['low', 'medium', 'high'];
+
+/** Yields text deltas as they arrive. Throws on HTTP/API errors. */
+export async function* streamChat(
+  settings: Settings,
+  messages: ChatMessage[],
+  signal: AbortSignal,
+  report: StreamReport = {},
+): AsyncGenerator<string> {
+  const url = `${baseUrl(settings)}/chat/completions`;
+
+  // Fields beyond the bare minimum. Most servers ignore what they don't know;
+  // the few that reject unknown fields with a 400 get one plain retry below.
+  const extras = () => {
+    const effort = EFFORTS.includes(settings.thinkingLevel) ? settings.thinkingLevel : null;
+    return {
+      stream_options: { include_usage: true }, // real token counts in a final chunk
+      // Two spellings of the same request: OpenAI-style and OpenRouter-style.
+      ...(effort ? { reasoning_effort: effort, reasoning: { effort } } : {}),
+    };
+  };
+
+  const body = (withExtras: boolean) =>
+    JSON.stringify({
+      model: settings.model,
+      messages,
+      stream: true,
+      temperature: settings.temperature,
+      max_tokens: settings.maxTokens,
+      ...(withExtras ? extras() : {}),
+    });
+
+  const send = (withExtras: boolean) =>
+    request(url, { method: 'POST', headers: headers(settings), signal, body: body(withExtras) });
+
+  let res = await send(true);
+  if (res.status === 400) {
+    await res.body?.cancel().catch(() => {});
+    report.extrasDropped = true;
+    res = await send(false);
+  }
+
+  if (!res.ok) throw await failure(res);
+  if (!res.body) throw new Error('The provider sent no response body.');
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
+    buffer += decoder.decode(chunk, { stream: true });
+    let nl: number;
+    while ((nl = buffer.indexOf('\n')) !== -1) {
+      const line = buffer.slice(0, nl).trim();
+      buffer = buffer.slice(nl + 1);
+      if (!line.startsWith('data:')) continue;
+      const payload = line.slice(5).trim();
+      if (payload === '[DONE]') return;
+      let json: any;
+      try {
+        json = JSON.parse(payload);
+      } catch {
+        continue; // ignore keep-alive / partial junk
+      }
+      if (json.error) throw new Error(json.error.message ?? JSON.stringify(json.error));
+      if (typeof json.model === 'string' && json.model) report.modelReported = json.model;
+      const choice = json.choices?.[0];
+      if (choice?.finish_reason) report.finishReason = choice.finish_reason;
+      // Arrives in a final chunk (usually with no choices) when include_usage worked.
+      if (json.usage && typeof json.usage === 'object') {
+        const u = json.usage;
+        report.usage = {
+          prompt_tokens: u.prompt_tokens ?? undefined,
+          completion_tokens: u.completion_tokens ?? undefined,
+          total_tokens: u.total_tokens ?? undefined,
+        };
+      }
+      const delta = choice?.delta?.content;
+      if (typeof delta === 'string' && delta) yield delta;
+    }
+  }
+}
+
+export interface ConnectionTest {
+  model?: string;
+  reply: string;
+  usage?: TokenUsage;
+  finishReason?: string;
+}
+
+/**
+ * The smallest real request there is: four tokens at temperature 0, no streaming
+ * and no thinking. Enough to prove the URL, key and model all work together.
+ */
+export async function testChat(settings: Settings): Promise<ConnectionTest> {
+  const res = await request(`${baseUrl(settings)}/chat/completions`, {
+    method: 'POST',
+    headers: headers(settings),
+    signal: AbortSignal.timeout(20_000), // never leave the button spinning
+    body: JSON.stringify({
+      model: settings.model,
+      messages: [{ role: 'user', content: 'Reply with the single word: ok' }],
+      max_tokens: 4,
+      temperature: 0,
+      stream: false,
+    }),
+  });
+  if (!res.ok) throw await failure(res);
+  const json: any = await readJson(res);
+  if (json.error) throw new Error(json.error.message ?? JSON.stringify(json.error));
+  const choice = json.choices?.[0];
+  return {
+    model: typeof json.model === 'string' ? json.model : undefined,
+    reply: String(choice?.message?.content ?? '').trim(),
+    usage: json.usage,
+    finishReason: choice?.finish_reason,
+  };
+}
+
+export async function listModels(settings: Settings): Promise<string[]> {
+  const res = await request(`${baseUrl(settings)}/models`, {
+    headers: headers(settings),
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!res.ok) throw await failure(res);
+  const json: any = await readJson(res);
+  const list: any[] = Array.isArray(json) ? json : (json.data ?? json.models ?? []);
+  return list.map((m) => m.id ?? m.name).filter(Boolean).sort();
+}

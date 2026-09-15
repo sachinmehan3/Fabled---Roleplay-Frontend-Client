@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en" class="dark theme-fabled">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fabled</title>
+    <link rel="icon" href="/fabled-icon.svg" />
+    <script>
+      // Apply the saved theme before the first paint.
+      try {
+        var t = localStorage.getItem('rp-theme');
+        if (t !== 'light' && t !== 'dark' && t !== 'fabled') t = 'fabled';
+        var c = document.documentElement.classList;
+        c.toggle('dark', t !== 'light');
+        c.toggle('theme-fabled', t === 'fabled');
+        c.toggle('theme-dark', t === 'dark');
+        c.toggle('theme-light', t === 'light');
+        document.documentElement.style.colorScheme = t === 'light' ? 'light' : 'dark';
+      } catch (e) {}
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&family=Literata:ital,opsz,wght@0,7..72,400..600;1,7..72,400..600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/web/main.tsx"></script>
+  </body>
+</html>

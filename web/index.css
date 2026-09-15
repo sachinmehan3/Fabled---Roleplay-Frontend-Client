@@ -1,0 +1,190 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-serif: 'Literata', Georgia, 'Iowan Old Style', serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-quote: var(--quote);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+/* ===== theme tokens =====
+   Three themes, picked from the sidebar footer:
+     Light   :root            parchment & ink
+     Fabled  .dark            ink & antique bronze (the default)
+     Dark    .dark.theme-dark the original zinc & violet
+   Every dark theme keeps the `dark` class so Tailwind's dark: utilities apply. */
+:root {
+  --radius: 0.625rem;
+  --background: oklch(0.988 0.006 85);
+  --foreground: oklch(0.23 0.016 62);
+  --card: oklch(0.997 0.003 85);
+  --card-foreground: oklch(0.23 0.016 62);
+  --popover: oklch(0.997 0.003 85);
+  --popover-foreground: oklch(0.23 0.016 62);
+  --primary: oklch(0.505 0.108 66);
+  --primary-foreground: oklch(0.985 0.012 85);
+  --secondary: oklch(0.955 0.012 82);
+  --secondary-foreground: oklch(0.3 0.022 62);
+  --muted: oklch(0.955 0.012 82);
+  --muted-foreground: oklch(0.53 0.024 66);
+  --accent: oklch(0.945 0.018 80);
+  --accent-foreground: oklch(0.3 0.022 62);
+  --destructive: oklch(0.52 0.17 27);
+  --border: oklch(0.898 0.014 80);
+  --input: oklch(0.898 0.014 80);
+  --ring: oklch(0.63 0.1 68);
+  --sidebar: oklch(0.966 0.011 83);
+  --sidebar-foreground: oklch(0.23 0.016 62);
+  --sidebar-accent: oklch(0.928 0.018 80);
+  --sidebar-border: oklch(0.898 0.014 80);
+  --quote: oklch(0.54 0.125 78);
+}
+
+/* Fabled, drawn from the logo: the tile green #1F3A2E is oklch(0.325 0.04 162),
+   the monogram gold #EBC97A is oklch(0.848 0.105 87). Surfaces sit below the
+   tile's lightness so the mark reads as an object on the page, not a patch of it. */
+.dark {
+  --background: oklch(0.192 0.018 163);
+  --foreground: oklch(0.948 0.012 92);
+  --card: oklch(0.246 0.021 163);
+  --card-foreground: oklch(0.948 0.012 92);
+  --popover: oklch(0.246 0.021 163);
+  --popover-foreground: oklch(0.948 0.012 92);
+  --primary: oklch(0.8 0.115 83);
+  --primary-foreground: oklch(0.2 0.028 163);
+  --secondary: oklch(0.292 0.024 163);
+  --secondary-foreground: oklch(0.948 0.012 92);
+  --muted: oklch(0.292 0.024 163);
+  --muted-foreground: oklch(0.722 0.022 150);
+  --accent: oklch(0.318 0.028 163);
+  --accent-foreground: oklch(0.958 0.012 92);
+  --destructive: oklch(0.67 0.17 25);
+  --border: oklch(0.86 0.05 150 / 14%);
+  --input: oklch(0.86 0.05 150 / 18%);
+  --ring: oklch(0.72 0.1 85);
+  --sidebar: oklch(0.222 0.02 163);
+  --sidebar-foreground: oklch(0.948 0.012 92);
+  --sidebar-accent: oklch(0.292 0.024 163);
+  --sidebar-border: oklch(0.86 0.05 150 / 14%);
+  --quote: oklch(0.875 0.085 92);
+}
+
+/* Neutral zinc with a muted steel-blue accent - quieter than the stock violet. */
+.dark.theme-dark {
+  --background: oklch(0.141 0.005 285.823);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.21 0.006 285.885);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.21 0.006 285.885);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.72 0.078 238);
+  --primary-foreground: oklch(0.17 0.014 245);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.274 0.006 286.033);
+  --muted-foreground: oklch(0.705 0.015 286.067);
+  --accent: oklch(0.274 0.006 286.033);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.62 0.075 238);
+  --sidebar: oklch(0.21 0.006 285.885);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.274 0.006 286.033);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --quote: oklch(0.84 0.13 86);
+}
+
+/* ===== chat message typography ===== */
+.rp-prose {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.rp-prose > :first-child { margin-top: 0; }
+.rp-prose > :last-child { margin-bottom: 0; }
+.rp-prose p { margin: 0 0 0.75em; }
+.rp-prose em { color: var(--muted-foreground); }
+.rp-prose strong { font-weight: 600; }
+.rp-prose .rp-quote { color: var(--quote); }
+.rp-prose a { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
+.rp-prose code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  background: var(--muted);
+  border-radius: 0.3rem;
+  padding: 0.1em 0.35em;
+}
+.rp-prose pre { background: var(--muted); border-radius: var(--radius); padding: 0.75rem 1rem; overflow-x: auto; margin: 0 0 0.75em; }
+.rp-prose pre code { background: none; padding: 0; }
+.rp-prose blockquote { border-left: 3px solid var(--border); padding-left: 0.9rem; color: var(--muted-foreground); margin: 0 0 0.75em; }
+.rp-prose ul, .rp-prose ol { padding-left: 1.4rem; margin: 0 0 0.75em; }
+.rp-prose ul { list-style: disc; }
+.rp-prose ol { list-style: decimal; }
+.rp-prose img { max-width: 100%; border-radius: var(--radius); }
+.rp-prose hr { border-color: var(--border); margin: 1em 0; }
+
+/* ===== avatars: one quiet tint per name, never a gradient ===== */
+.rp-avatar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.08);
+  pointer-events: none;
+}
+.dark .rp-avatar::after { box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1); }
+.rp-avatar-fallback {
+  background: oklch(0.955 0.026 var(--avatar-hue, 260deg));
+  color: oklch(0.47 0.09 var(--avatar-hue, 260deg));
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+.dark .rp-avatar-fallback {
+  background: oklch(0.31 0.038 var(--avatar-hue, 260deg));
+  color: oklch(0.85 0.07 var(--avatar-hue, 260deg));
+}
+
+@keyframes rp-blink { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
+.rp-typing i { display: inline-block; width: 6px; height: 6px; border-radius: 9999px; background: currentColor; animation: rp-blink 1.2s infinite; }
+.rp-typing i:nth-child(2) { animation-delay: 0.2s; }
+.rp-typing i:nth-child(3) { animation-delay: 0.4s; }
