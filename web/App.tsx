@@ -211,7 +211,7 @@ export function App() {
       if (characterId) await refreshChats(characterId);
     }),
     onDeleteChat: run(deleteChat),
-    onOpenSettings: () => openSettings('connection'),
+    onOpenSettings: (tab: SettingsTab) => openSettings(tab),
     onOpenLorebooks: () => {
       setLorebooksOpen(true);
       setSidebarOpen(false);

@@ -20,6 +20,7 @@ import {
 import type { Character, Chat } from '@/types';
 import { cn } from '@/lib/utils';
 import { THEMES, useTheme } from '@/hooks/use-theme';
+import { SETTINGS_TABS, type SettingsTab } from '@/components/settings-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
@@ -49,7 +50,7 @@ interface Props {
   onSelectChat: (id: number) => void;
   onRenameChat: (id: number, title: string) => void;
   onDeleteChat: (id: number) => void;
-  onOpenSettings: () => void;
+  onOpenSettings: (tab: SettingsTab) => void;
   onOpenLorebooks: () => void;
   /** Collapse the sidebar. Desktop only - on a phone it closes by tapping away. */
   onClose?: () => void;
@@ -313,10 +314,22 @@ export function AppSidebar(p: Props) {
 
       {/* Footer */}
       <div className="border-sidebar-border flex items-center gap-1 border-t p-2">
-        <Button variant="ghost" className="flex-1 justify-start" onClick={p.onOpenSettings}>
-          <Settings2 />
-          Settings
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="flex-1 justify-start">
+              <Settings2 />
+              Settings
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" side="top" className="w-48">
+            {SETTINGS_TABS.map(({ value, label, icon: Icon }) => (
+              <DropdownMenuItem key={value} onSelect={() => p.onOpenSettings(value)}>
+                <Icon />
+                {label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon" onClick={p.onOpenLorebooks} aria-label="Lorebooks">

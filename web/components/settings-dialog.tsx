@@ -2,13 +2,19 @@ import { useEffect, useState } from 'react';
 import {
   CircleCheck,
   CircleAlert,
+  Database,
   Globe,
   KeyRound,
   LoaderCircle,
+  Palette,
   PlugZap,
   RefreshCw,
   ScanFace,
+  ScrollText,
+  SlidersHorizontal,
+  UserRound,
   Zap,
+  type LucideIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
@@ -19,7 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -102,6 +108,46 @@ const PROMPT_FORMATS: { value: PromptFormat; label: string; hint: string }[] = [
 ];
 
 export type SettingsTab = 'connection' | 'user' | 'customize' | 'generation' | 'prompt' | 'data';
+
+/** The sections of Settings, in the order the sidebar menu lists them. */
+export const SETTINGS_TABS: { value: SettingsTab; label: string; icon: LucideIcon; description: string }[] = [
+  {
+    value: 'connection',
+    label: 'Connection',
+    icon: PlugZap,
+    description: 'Which provider and model your characters speak through.',
+  },
+  {
+    value: 'user',
+    label: 'User',
+    icon: UserRound,
+    description: 'Who you are in the story: your name, persona and picture.',
+  },
+  {
+    value: 'customize',
+    label: 'Customize',
+    icon: Palette,
+    description: 'How the chat looks.',
+  },
+  {
+    value: 'generation',
+    label: 'Generation',
+    icon: SlidersHorizontal,
+    description: 'How long, how varied, and how hard the model thinks.',
+  },
+  {
+    value: 'prompt',
+    label: 'Prompt',
+    icon: ScrollText,
+    description: 'The instructions sent ahead of every chat.',
+  },
+  {
+    value: 'data',
+    label: 'Data',
+    icon: Database,
+    description: 'Back up, restore or clear what is kept in this browser.',
+  },
+];
 
 // Fetched model lists are remembered per provider, so they survive a reload
 // instead of making you press "Fetch models" again every time.
@@ -243,7 +289,7 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
     : !form.userAvatar
       ? 'Upload a picture first.'
       : !form.model
-        ? 'Choose a model on the Connection tab first.'
+        ? 'Choose a model in Connection settings first.'
         : vision.checking
           ? 'Checking whether this model can read pictures…'
           : !vision.ok
@@ -350,25 +396,21 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
     }
   };
 
+  const section = SETTINGS_TABS.find((t) => t.value === tab) ?? SETTINGS_TABS[0];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-0 p-0 sm:max-w-xl">
         <DialogHeader className="border-b px-6 pt-6 pb-4">
-          <DialogTitle>Settings</DialogTitle>
-          <DialogDescription>Connect a model and tune how your characters respond.</DialogDescription>
+          <DialogTitle className="flex items-center gap-2">
+            <section.icon className="text-muted-foreground size-4" />
+            {section.label}
+          </DialogTitle>
+          <DialogDescription>{section.description}</DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue={tab} className="max-h-[65vh] gap-0 overflow-y-auto">
-          <div className="px-6 pt-4">
-            <TabsList className="w-full">
-              <TabsTrigger value="connection">Connection</TabsTrigger>
-              <TabsTrigger value="user">User</TabsTrigger>
-              <TabsTrigger value="customize">Customize</TabsTrigger>
-              <TabsTrigger value="generation">Generation</TabsTrigger>
-              <TabsTrigger value="prompt">Prompt</TabsTrigger>
-              <TabsTrigger value="data">Data</TabsTrigger>
-            </TabsList>
-          </div>
+        {/* One section at a time, picked from the Settings menu in the sidebar. */}
+        <Tabs value={tab} className="max-h-[65vh] gap-0 overflow-y-auto">
 
           <TabsContent value="connection" className="space-y-5 px-6 py-5">
             <div className="grid gap-2">
