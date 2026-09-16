@@ -44,7 +44,7 @@ import { importLorebook } from './lorebook-import.ts';
 import './migrate-sqlite.ts'; // one-time import of an older data/rp.db, if one is there
 import { seedStarterCharacter } from './seed.ts';
 import { isPng, normalizeCard, parseCardFile, type CharacterCard } from './cards.ts';
-import { buildPrompt, estimateTokens } from './prompt.ts';
+import { applyMacros, buildPrompt, estimateTokens } from './prompt.ts';
 import { postProcess } from './post-process.ts';
 import { describeImage, listModels, streamChat, testChat, type StreamReport } from './llm.ts';
 
@@ -583,7 +583,7 @@ route('DELETE', '/api/messages/:id', ({ params }) => {
 // mode "swipe": add an alternative version of the last assistant reply
 route('POST', '/api/chats/:id/generate', async ({ params, json, res }) => {
   const chat = requireChat(id(params.id));
-  type GenerateBody = { mode?: 'new' | 'swipe' | 'redo'; messageId?: number };
+  type GenerateBody = { mode?: 'new' | 'swipe' | 'redo' | 'impersonate'; messageId?: number };
   const { mode = 'new', messageId } = await json<GenerateBody>().catch(() => ({}) as GenerateBody);
   const character = requireCharacter(chat.character_id);
   const settings = getSettings();
@@ -591,15 +591,19 @@ route('POST', '/api/chats/:id/generate', async ({ params, json, res }) => {
 
   let all = listMessages(chat.id);
   let target: MessageRow | undefined;
-  // Both modes answer again from what came before the target reply, leaving
-  // anything after it alone. 'swipe' keeps the old text beside the new one;
-  // 'redo' replaces it, versions and all.
-  const replace = mode === 'redo';
-  if (mode === 'swipe' || mode === 'redo') {
+  // Every mode but 'new' rewrites an existing message from what came before it,
+  // leaving anything after it alone. 'swipe' keeps the old text beside the new
+  // one; 'redo' and 'impersonate' replace it, versions and all.
+  const impersonate = mode === 'impersonate';
+  const replace = mode === 'redo' || impersonate;
+  if (mode !== 'new') {
     const at = typeof messageId === 'number' ? all.findIndex((m) => m.id === messageId) : all.length - 1;
     if (at < 0) throw new HttpError(404, 'That message is not in this chat');
     target = all[at];
-    if (!target || target.role !== 'assistant') throw new HttpError(400, 'Only a reply can be regenerated');
+    const wanted = impersonate ? 'user' : 'assistant';
+    if (!target || target.role !== wanted) {
+      throw new HttpError(400, impersonate ? 'Only your own message can be written for you' : 'Only a reply can be regenerated');
+    }
     all = all.slice(0, at);
   }
 
@@ -616,6 +620,18 @@ route('POST', '/api/chats/:id/generate', async ({ params, json, res }) => {
   saveLoreState(chat.id, lore.state); // sticky and cooldown are remembered per chat
 
   const built = buildPrompt(character.card, settings, history, getMemory(chat.id), lore.entries);
+  // Asking for the other half of the conversation: same prompt, a last word on
+  // whose turn it is.
+  if (impersonate) {
+    built.messages.push({
+      role: 'system',
+      content: applyMacros(
+        `Write the next message as {{user}}, in their voice and from their point of view. Do not write as {{char}}, do not narrate what {{char}} says or does, and stop when {{user}}'s turn is over.`,
+        character.card.name,
+        settings.userName,
+      ),
+    });
+  }
   // Reshaped before it is sent and before it is recorded, so the details panel
   // shows what the provider actually received.
   const messages = postProcess(built.messages, settings.promptFormat);

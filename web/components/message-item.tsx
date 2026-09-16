@@ -12,6 +12,7 @@ import {
   Pencil,
   RefreshCw,
   Trash2,
+  Wand2,
 } from 'lucide-react';
 import type { Message } from '@/types';
 import { renderMarkdown } from '@/markdown';
@@ -36,6 +37,7 @@ interface Props {
   onOpenProfile?: () => void;
   onOpenDetails?: () => void;
   onBranch?: () => void;
+  onImpersonate?: () => void;
   /** Draw a panel behind the message. Off leaves plain text on the page. */
   bubble?: boolean;
   /** Delete mode: the row becomes a target rather than a conversation. */
@@ -227,6 +229,11 @@ export const MessageItem = memo(function MessageItem(p: Props) {
               {m.role === 'assistant' && (
                 <IconAction label="Regenerate" onClick={p.onRegenerate}>
                   <RefreshCw />
+                </IconAction>
+              )}
+              {isUser && p.onImpersonate && (
+                <IconAction label="Write this message for me" onClick={p.onImpersonate}>
+                  <Wand2 />
                 </IconAction>
               )}
               {m.role === 'assistant' && p.onBranch && (

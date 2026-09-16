@@ -32,7 +32,12 @@ interface Props {
   onBranched: (chatId: number) => void;
 }
 
-type Streaming = { mode: 'new' | 'swipe' | 'redo'; text: string; reasoning: string; targetId?: number } | null;
+type Streaming = {
+  mode: 'new' | 'swipe' | 'redo' | 'impersonate';
+  text: string;
+  reasoning: string;
+  targetId?: number;
+} | null;
 type Details = { messageId: number; swipeIndex: number; swipeCount: number; meta: GenerationMeta | null };
 
 const applyMacros = (text: string, char: string, user: string) =>
@@ -94,7 +99,7 @@ export function ChatView({
     if (el && stickToBottom.current) el.scrollTop = el.scrollHeight;
   }, [messages, streaming]);
 
-  const runGeneration = async (mode: 'new' | 'swipe' | 'redo', targetId?: number) => {
+  const runGeneration = async (mode: 'new' | 'swipe' | 'redo' | 'impersonate', targetId?: number) => {
     const controller = new AbortController();
     abortRef.current = controller;
     // Rewriting something further up should not drag the view to the bottom.
@@ -307,6 +312,7 @@ export function ChatView({
                   onLoadReasoning={() =>
                     api.getMessageMeta(m.id, m.swipe_index).then((full) => full.reasoning ?? '')
                   }
+                  onImpersonate={safe(() => runGeneration('impersonate', m.id))}
                   onBranch={safe(async () => {
                     const branch = await api.branchChat(chatId, m.id);
                     toast.success('Branched into a new chat');

@@ -8,6 +8,7 @@ A minimal, hackable roleplay chat frontend in the spirit of SillyTavern.
 - **Character editor:** write a card from scratch or edit any imported one, avatar included
 - **User card:** your own name, persona and picture, on their own Settings tab; the persona is sent with every prompt, and a vision model can write your appearance from your picture
 - **Expandable profiles:** click any avatar or name to see the full card picture and its fields
+- **Impersonate:** have the model write your own message, in your voice, from the conversation so far
 - **Branching:** split a chat at any reply and carry on down a different road, with the original left where it was
 - **Swipes:** step through past replies, or press › on the latest reply to generate a new version
 - **Edit, copy, regenerate, delete (with confirmation) and Stop:** if you stop a reply midway, the partial text is kept

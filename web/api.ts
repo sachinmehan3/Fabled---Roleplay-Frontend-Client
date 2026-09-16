@@ -84,7 +84,7 @@ export interface StreamHandlers {
 /** Start a generation and read the SSE stream. Resolves with the saved message (if any). */
 export async function generate(
   chatId: number,
-  mode: 'new' | 'swipe' | 'redo',
+  mode: 'new' | 'swipe' | 'redo' | 'impersonate',
   { onDelta, onReasoning, signal }: StreamHandlers,
   /** Which reply to add a version to. Defaults to the last one. */
   messageId?: number,
