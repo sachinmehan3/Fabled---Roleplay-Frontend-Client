@@ -37,7 +37,7 @@ export function ProfileDialog({ open, onOpenChange, name, avatar, subtitle, tags
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* A column, not a grid: the portrait and the card text share one scroll
           region, so a tall picture pushes the text down rather than off the end. */}
-      <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+      <DialogContent showCloseButton={false} className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="flex flex-col items-center gap-3 px-6 pt-8 pb-5">
             {url ? (
