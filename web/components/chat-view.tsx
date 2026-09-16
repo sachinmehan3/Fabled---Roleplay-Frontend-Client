@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowUp, Brain, PanelLeft, Square } from 'lucide-react';
+import { ArrowUp, Brain, Ellipsis, PanelLeft, Square } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, generate } from '@/api';
 import type { Character, GenerationMeta, Message, Settings } from '@/types';
@@ -7,7 +7,12 @@ import { cn } from '@/lib/utils';
 import { useConfirm } from '@/hooks/use-confirm';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { avatarUrl, CharacterAvatar } from '@/components/character-avatar';
 import { MessageItem } from '@/components/message-item';
 import { ProfileDialog } from '@/components/profile-dialog';
@@ -248,9 +253,23 @@ export function ChatView({
       </div>
 
       {/* Composer */}
-      <div className="relative z-10 mx-auto w-full max-w-3xl px-4 pb-4">
+      <div className="relative z-10 mx-auto flex w-full max-w-3xl items-end gap-2 px-4 pb-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" className="text-muted-foreground mb-1 shrink-0 rounded-full" aria-label="Chat tools">
+              <Ellipsis />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align="start" className="w-44">
+            <DropdownMenuItem onSelect={() => setMemoryOpen(true)}>
+              <Brain />
+              Chat memory
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <form
-          className="bg-card focus-within:border-ring focus-within:ring-ring/30 relative rounded-2xl border shadow-sm transition-[box-shadow,border-color] focus-within:ring-[3px]"
+          className="bg-card focus-within:border-ring focus-within:ring-ring/30 relative min-w-0 flex-1 rounded-2xl border shadow-sm transition-[box-shadow,border-color] focus-within:ring-[3px]"
           onSubmit={(e) => {
             e.preventDefault();
             send();
@@ -287,24 +306,6 @@ export function ChatView({
             >
               <PanelLeft />
             </Button>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="text-muted-foreground"
-                  onClick={() => setMemoryOpen(true)}
-                  aria-label="Chat memory"
-                >
-                  <Brain />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>What {character.name} remembers</TooltipContent>
-            </Tooltip>
-            <span className="text-muted-foreground hidden truncate pl-1 text-xs lg:block">
-              <kbd className="font-sans">Enter</kbd> to send · <kbd className="font-sans">Shift + Enter</kbd> for a new
-              line · <kbd className="font-sans">Ctrl + Enter</kbd> to regenerate
-            </span>
             {streaming ? (
               <Button
                 type="button"
