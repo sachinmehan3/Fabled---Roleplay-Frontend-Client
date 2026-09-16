@@ -268,12 +268,11 @@ export function AppSidebar(p: Props) {
               {themeIcon[theme]}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" side="top" className="w-48">
+          <DropdownMenuContent align="end" side="top" className="w-36">
             {THEMES.map((t) => (
               <DropdownMenuItem key={t.value} onSelect={() => setTheme(t.value)}>
                 {themeIcon[t.value]}
                 <span className="flex-1">{t.label}</span>
-                <span className="text-muted-foreground text-xs">{t.hint}</span>
                 {theme === t.value && <Check className="text-primary size-4" />}
               </DropdownMenuItem>
             ))}

@@ -2,10 +2,10 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 
 export type Theme = 'default' | 'dark' | 'light';
 
-export const THEMES: { value: Theme; label: string; hint: string }[] = [
-  { value: 'default', label: 'Default', hint: 'Ink and bronze' },
-  { value: 'dark', label: 'Dark', hint: 'Zinc and steel' },
-  { value: 'light', label: 'Light', hint: 'Parchment' },
+export const THEMES: { value: Theme; label: string }[] = [
+  { value: 'default', label: 'Default' },
+  { value: 'dark', label: 'Dark' },
+  { value: 'light', label: 'Light' },
 ];
 
 const STORAGE_KEY = 'rp-theme';
