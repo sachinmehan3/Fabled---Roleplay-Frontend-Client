@@ -71,6 +71,14 @@ export function ChatView({
     return () => abortRef.current?.abort();
   }, [reload]);
 
+  // The box is one line until it needs more, for browsers that lack field-sizing.
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [input]);
+
   // Keep the view pinned to the newest message unless the user scrolled up.
   useLayoutEffect(() => {
     const el = scrollRef.current;
@@ -252,36 +260,53 @@ export function ChatView({
         </div>
       </div>
 
-      {/* Composer */}
-      <div className="relative z-10 mx-auto flex w-full max-w-3xl items-end gap-2 px-4 pb-4">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" className="text-muted-foreground mb-1 shrink-0 rounded-full" aria-label="Chat tools">
-              <Ellipsis />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent side="top" align="start" className="w-44">
-            <DropdownMenuItem onSelect={() => setMemoryOpen(true)}>
-              <Brain />
-              Chat memory
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
+      {/* Composer: one line until what you write needs more. */}
+      <div className="relative z-10 mx-auto w-full max-w-3xl px-4 pb-4">
         <form
-          className="bg-card focus-within:border-ring focus-within:ring-ring/30 relative min-w-0 flex-1 rounded-2xl border shadow-sm transition-[box-shadow,border-color] focus-within:ring-[3px]"
+          className="bg-card focus-within:border-ring focus-within:ring-ring/30 flex items-center gap-1 rounded-2xl border px-2 py-1.5 shadow-sm transition-[box-shadow,border-color] focus-within:ring-[3px]"
           onSubmit={(e) => {
             e.preventDefault();
             send();
           }}
         >
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className={cn('text-muted-foreground shrink-0', !sidebarCollapsed && 'md:hidden')}
+            onClick={onOpenSidebar}
+            aria-label="Open sidebar"
+          >
+            <PanelLeft />
+          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground shrink-0"
+                aria-label="Chat tools"
+              >
+                <Ellipsis />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="start" className="w-44">
+              <DropdownMenuItem onSelect={() => setMemoryOpen(true)}>
+                <Brain />
+                Chat memory
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Textarea
             ref={inputRef}
             value={input}
             placeholder={`Message ${character.name}…`}
             aria-label="Message"
             rows={1}
-            className="max-h-60 min-h-14 resize-none border-0 bg-transparent px-4 pt-3.5 pb-0 text-[15px] shadow-none focus-visible:ring-0 dark:bg-transparent"
+            className="max-h-60 min-h-0 flex-1 resize-none border-0 bg-transparent px-1 py-1.5 text-[15px] shadow-none focus-visible:ring-0 dark:bg-transparent"
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
@@ -296,56 +321,25 @@ export function ChatView({
               }
             }}
           />
-          <div className="flex items-center gap-1 px-3 pt-1 pb-2.5">
+
+          {streaming ? (
             <Button
-              variant="ghost"
+              type="button"
               size="icon-sm"
-              className={cn('text-muted-foreground', !sidebarCollapsed && 'md:hidden')}
-              onClick={onOpenSidebar}
-              aria-label="Open sidebar"
+              variant="secondary"
+              className="shrink-0 rounded-full"
+              aria-label="Stop"
+              onClick={() => abortRef.current?.abort()}
             >
-              <PanelLeft />
+              <Square className="size-3.5 fill-current" />
             </Button>
-            {streaming ? (
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="secondary"
-                className="ml-auto rounded-full"
-                aria-label="Stop"
-                onClick={() => abortRef.current?.abort()}
-              >
-                <Square className="size-3.5 fill-current" />
-              </Button>
-            ) : (
-              <Button type="submit" size="icon-sm" className="ml-auto rounded-full" aria-label="Send" disabled={!canSend}>
-                <ArrowUp />
-              </Button>
-            )}
-          </div>
+          ) : (
+            <Button type="submit" size="icon-sm" className="shrink-0 rounded-full" aria-label="Send" disabled={!canSend}>
+              <ArrowUp />
+            </Button>
+          )}
         </form>
       </div>
-
-      <ProfileDialog
-        open={profile === 'character'}
-        onOpenChange={(o) => setProfile(o ? 'character' : null)}
-        name={character.name}
-        avatar={character.avatar}
-        subtitle={card.creator ? `Character card by ${card.creator}` : 'Character card'}
-        tags={card.tags}
-        fields={[
-          { label: 'Description', text: macros(card.description) },
-          { label: 'Personality', text: macros(card.personality) },
-          { label: 'Scenario', text: macros(card.scenario) },
-          { label: 'First message', text: macros(card.first_mes) },
-          { label: 'Creator notes', text: card.creator_notes },
-        ]}
-        editLabel="Edit character"
-        onEdit={() => {
-          setProfile(null);
-          onEditCharacter();
-        }}
-      />
 
       <MemoryDialog open={memoryOpen} onOpenChange={setMemoryOpen} chatId={chatId} characterName={character.name} />
 
