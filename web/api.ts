@@ -65,6 +65,8 @@ export const api = {
   updateMessage: (id: number, patch: { content?: string; swipe_index?: number }) =>
     request<Message>('PATCH', `/api/messages/${id}`, patch),
   deleteMessage: (id: number) => request('DELETE', `/api/messages/${id}`),
+  deleteMessages: (chatId: number, ids: number[]) =>
+    request<{ removed: number }>('POST', `/api/chats/${chatId}/messages/delete`, { ids }),
   /** The full record for one swipe, including the prompt as it was sent. */
   getMessageMeta: (id: number, swipe: number) =>
     request<GenerationMeta>('GET', `/api/messages/${id}/meta/${swipe}`),

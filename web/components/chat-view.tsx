@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowUp, Brain, Ellipsis, PanelLeft, Square } from 'lucide-react';
+import { ArrowUp, Brain, Ellipsis, PanelLeft, Square, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, generate } from '@/api';
 import type { Character, GenerationMeta, Message, Settings } from '@/types';
@@ -56,6 +56,8 @@ export function ChatView({
   const [profile, setProfile] = useState<'character' | 'user' | null>(null);
   const [details, setDetails] = useState<Details | null>(null);
   const [memoryOpen, setMemoryOpen] = useState(false);
+  /** Ids to delete, or null when not in delete mode. */
+  const [selection, setSelection] = useState<number[] | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -145,6 +147,36 @@ export function ChatView({
   const edit = async (msg: Message, content: string) => {
     const updated = await api.updateMessage(msg.id, { content });
     setMessages((ms) => ms.map((m) => (m.id === msg.id ? updated : m)));
+  };
+
+  /**
+   * Picking a message takes it and everything after it: a reply only makes
+   * sense in the light of what came before, so leaving the tail behind would
+   * leave the conversation talking about something that no longer happened.
+   */
+  const selectFrom = (msg: Message) => {
+    const at = messages.findIndex((m) => m.id === msg.id);
+    if (at === -1) return;
+    setSelection((current) => (current?.[0] === msg.id ? [] : messages.slice(at).map((m) => m.id)));
+  };
+
+  const deleteSelected = async () => {
+    const ids = selection ?? [];
+    if (!ids.length) return;
+    const ok = await confirm({
+      title: ids.length === 1 ? 'Delete this message?' : `Delete ${ids.length} messages?`,
+      description:
+        ids.length === 1
+          ? 'It is the last message in the chat.'
+          : 'This message and everything after it will be permanently removed, along with every other version of them.',
+      confirmText: 'Delete',
+      destructive: true,
+    });
+    if (!ok) return;
+    await api.deleteMessages(chatId, ids);
+    setSelection(null);
+    await reload();
+    onMessagesChanged();
   };
 
   const remove = async (msg: Message) => {
@@ -239,6 +271,9 @@ export function ChatView({
                   isLast={m.id === last?.id}
                   busy={streaming !== null}
                   bubble={settings.messageBubbles}
+                  selecting={selection !== null}
+                  selected={selection?.includes(m.id)}
+                  onSelect={() => selectFrom(m)}
                   onSwipe={safe((dir: -1 | 1) => swipe(m, dir))}
                   onRegenerate={safe(() => runGeneration('swipe'))}
                   onEdit={safe((content: string) => edit(m, content))}
@@ -279,6 +314,27 @@ export function ChatView({
 
       {/* Composer: one line until what you write needs more. */}
       <div className="relative z-10 mx-auto w-full max-w-3xl px-4 pb-4">
+        {selection !== null && (
+          <div className="bg-card mb-2 flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 shadow-sm">
+            <span className="min-w-0 flex-1 text-sm">
+              {selection.length
+                ? `${selection.length} message${selection.length === 1 ? '' : 's'} selected, from the one you picked to the end.`
+                : 'Pick a message. It and everything after it will go.'}
+            </span>
+            <Button variant="ghost" size="sm" onClick={() => setSelection(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={!selection.length}
+              onClick={() => deleteSelected().catch(errorToast)}
+            >
+              <Trash2 />
+              Delete
+            </Button>
+          </div>
+        )}
         <form
           className="bg-card focus-within:border-ring focus-within:ring-ring/30 flex items-center gap-1 rounded-2xl border px-2 py-1.5 shadow-sm transition-[box-shadow,border-color] focus-within:ring-[3px]"
           onSubmit={(e) => {
@@ -298,10 +354,14 @@ export function ChatView({
                 <Ellipsis />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="start" className="w-44">
+            <DropdownMenuContent side="top" align="start" className="w-48">
               <DropdownMenuItem onSelect={() => setMemoryOpen(true)}>
                 <Brain />
                 Chat memory
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setSelection([])} disabled={!messages.length}>
+                <Trash2 />
+                Delete messages
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

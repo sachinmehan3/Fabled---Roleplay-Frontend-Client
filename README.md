@@ -152,6 +152,7 @@ web/
 | DELETE | `/api/chats/:id` | |
 | GET/POST | `/api/chats/:id/messages` | |
 | PATCH/DELETE | `/api/messages/:id` | `{content}` or `{swipe_index}` |
+| POST | `/api/chats/:id/messages/delete` | `{ids}`: removes several at once |
 | GET | `/api/messages/:id/meta/:swipe` | the generation record for one version, with its prompt |
 | GET/POST | `/api/lorebooks` | list, or make a new one |
 | GET/PUT/DELETE | `/api/lorebooks/:id` | |

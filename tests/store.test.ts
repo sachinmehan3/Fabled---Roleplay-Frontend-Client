@@ -169,6 +169,36 @@ test('deleting a message prunes its prompts and updates the count', () => {
   assert.equal(store.getRecord(chat.id, drop.id, 0), undefined);
 });
 
+test('deleting many messages at once takes their prompts with them', () => {
+  const c = store.insertCharacter('Bulk', card('Bulk'));
+  const chat = store.insertChat(c.id, 'A chat');
+  const keep = store.insertMessage(chat.id, 'assistant', ['Greeting.']);
+  const a = store.insertMessage(chat.id, 'user', ['One.'], [meta({ prompt: [{ role: 'system', content: 'p1' }] })]);
+  const b = store.insertMessage(chat.id, 'assistant', ['Two.'], [meta({ prompt: [{ role: 'system', content: 'p2' }] })]);
+  const d = store.insertMessage(chat.id, 'user', ['Three.']);
+
+  assert.equal(store.deleteMessages(chat.id, [a.id, b.id, d.id]), 3);
+  assert.deepEqual(
+    store.listMessages(chat.id).map((m) => m.id),
+    [keep.id],
+    'only the greeting is left',
+  );
+  assert.equal(store.getChat(chat.id)?.message_count, 1);
+  assert.equal(store.getRecord(chat.id, a.id, 0), undefined, 'their prompts went too');
+  assert.equal(store.getRecord(chat.id, b.id, 0), undefined);
+});
+
+test('deleting an empty or unknown set changes nothing', () => {
+  const c = store.insertCharacter('Untouched', card('Untouched'));
+  const chat = store.insertChat(c.id, 'A chat');
+  store.insertMessage(chat.id, 'user', ['Still here.']);
+
+  assert.equal(store.deleteMessages(chat.id, []), 0);
+  assert.equal(store.deleteMessages(chat.id, [99999]), 0);
+  assert.equal(store.listMessages(chat.id).length, 1);
+  assert.equal(store.getChat(chat.id)?.message_count, 1);
+});
+
 test('deleting a character takes its chats and their files with it', () => {
   const c = store.insertCharacter('Doomed', card('Doomed'));
   const chat = store.insertChat(c.id, 'A chat');

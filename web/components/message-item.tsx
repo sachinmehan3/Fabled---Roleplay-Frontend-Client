@@ -36,6 +36,10 @@ interface Props {
   onOpenDetails?: () => void;
   /** Draw a panel behind the message. Off leaves plain text on the page. */
   bubble?: boolean;
+  /** Delete mode: the row becomes a target rather than a conversation. */
+  selecting?: boolean;
+  selected?: boolean;
+  onSelect?: () => void;
   /** Thinking as it streams in, for the reply being written right now. */
   reasoning?: string;
   /** Size of the saved thinking, so the toggle can appear without fetching it. */
@@ -145,7 +149,27 @@ export const MessageItem = memo(function MessageItem(p: Props) {
 
   // User messages mirror the assistant layout: avatar on the right, actions on the left.
   return (
-    <article data-role={m?.role ?? 'assistant'} className={cn('group/msg flex gap-4 py-4', isUser && 'flex-row-reverse')}>
+    <article
+      data-role={m?.role ?? 'assistant'}
+      onClick={p.selecting ? p.onSelect : undefined}
+      className={cn(
+        'group/msg flex gap-4 py-4',
+        isUser && 'flex-row-reverse',
+        p.selecting && 'cursor-pointer rounded-xl px-2 transition-colors',
+        p.selecting && (p.selected ? 'bg-destructive/10' : 'hover:bg-accent/40'),
+      )}
+    >
+      {p.selecting && (
+        <span
+          aria-hidden
+          className={cn(
+            'mt-3 flex size-5 shrink-0 items-center justify-center rounded-[6px] border transition-colors',
+            p.selected && 'bg-destructive border-destructive text-white',
+          )}
+        >
+          {p.selected && <Check className="size-3.5" />}
+        </span>
+      )}
       <CharacterAvatar
         name={p.name}
         file={p.avatar}
@@ -169,7 +193,7 @@ export const MessageItem = memo(function MessageItem(p: Props) {
           </button>
           {time && <span className="text-muted-foreground text-xs">{time}</span>}
 
-          {m && !editing && !p.busy && (
+          {m && !editing && !p.busy && !p.selecting && (
             <div
               className={cn(
                 'flex items-center gap-0.5 transition-opacity md:opacity-0 md:group-hover/msg:opacity-100 md:focus-within:opacity-100',
@@ -262,7 +286,7 @@ export const MessageItem = memo(function MessageItem(p: Props) {
           </div>
         )}
 
-        {canSwipe && !editing && (
+        {canSwipe && !editing && !p.selecting && (
           <div className="text-muted-foreground mt-1.5 -ml-2 flex items-center gap-0.5 text-xs">
             <Button
               variant="ghost"

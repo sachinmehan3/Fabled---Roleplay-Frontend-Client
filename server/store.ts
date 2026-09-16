@@ -526,6 +526,24 @@ export function saveSwipes(id: number, swipes: string[], meta: (GenerationMeta |
   meta.forEach((m, i) => m && saveRecord(chatId, id, i, m));
 }
 
+/** Remove several messages in one rewrite of the log, rather than one each. */
+export function deleteMessages(chatId: number, ids: number[]): number {
+  const doomed = new Set(ids);
+  const rows = readJsonl<MessageRow>(chatFile(chatId));
+  const kept = rows.filter((m) => !doomed.has(m.id));
+  const removed = rows.length - kept.length;
+  if (!removed) return 0;
+
+  writeJsonl(chatFile(chatId), kept);
+  const file = promptFile(chatId);
+  if (fs.existsSync(file)) {
+    writeJsonl(file, readJsonl<RecordLine>(file).filter((l) => !doomed.has(l.message_id)));
+  }
+  for (const id of doomed) chatOfMessage.delete(id);
+  bumpCount(chatId, -removed);
+  return removed;
+}
+
 export function deleteMessage(id: number) {
   const chatId = findChatOf(id);
   if (chatId === undefined) return;

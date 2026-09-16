@@ -8,6 +8,7 @@ import {
   deleteChat,
   deleteCharacter,
   deleteMessage,
+  deleteMessages,
   getCharacter,
   getChat,
   getLoreState,
@@ -508,6 +509,16 @@ route('PATCH', '/api/messages/:id', async ({ params, json }) => {
   }
   saveSwipes(msg.id, msg.swipes, msg.meta, msg.swipe_index);
   return messageOut(getMessage(msg.id)!);
+});
+
+// Body: { ids }. Used by the delete mode, which removes a message and
+// everything that followed it in one go.
+route('POST', '/api/chats/:id/messages/delete', async ({ params, json }) => {
+  const chat = requireChat(id(params.id));
+  const { ids } = await json<{ ids?: number[] }>();
+  const wanted = Array.isArray(ids) ? ids.filter((n) => Number.isInteger(n)) : [];
+  if (!wanted.length) throw new HttpError(400, 'No messages were selected');
+  return { removed: deleteMessages(chat.id, wanted) };
 });
 
 route('DELETE', '/api/messages/:id', ({ params }) => {
