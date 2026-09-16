@@ -2,8 +2,10 @@ import type {
   Character,
   CharacterCard,
   Chat,
+  ChatMemory,
   ConnectionTest,
   GenerationMeta,
+  MemoryFact,
   Message,
   Settings,
 } from './types.ts';
@@ -41,6 +43,12 @@ export const api = {
   listChats: (charId: number) => request<Chat[]>('GET', `/api/characters/${charId}/chats`),
   createChat: (charId: number) => request<Chat>('POST', `/api/characters/${charId}/chats`),
   deleteChat: (id: number) => request('DELETE', `/api/chats/${id}`),
+
+  getMemory: (chatId: number) => request<ChatMemory>('GET', `/api/chats/${chatId}/memory`),
+  saveMemory: (chatId: number, patch: { summary?: string; facts?: MemoryFact[] }) =>
+    request<ChatMemory>('PUT', `/api/chats/${chatId}/memory`, patch),
+  foldMemory: (chatId: number) => request<ChatMemory>('POST', `/api/chats/${chatId}/memory/fold`),
+  clearMemory: (chatId: number) => request<ChatMemory>('DELETE', `/api/chats/${chatId}/memory`),
 
   listMessages: (chatId: number) => request<Message[]>('GET', `/api/chats/${chatId}/messages`),
   sendMessage: (chatId: number, content: string) => request<Message>('POST', `/api/chats/${chatId}/messages`, { content }),

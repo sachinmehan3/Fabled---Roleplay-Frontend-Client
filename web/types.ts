@@ -36,6 +36,22 @@ export interface ConnectionTest {
   ms: number;
 }
 
+export interface MemoryFact {
+  id: string;
+  text: string;
+  pinned?: boolean;
+  createdAt: number;
+}
+
+export interface ChatMemory {
+  version: 1;
+  summary: string;
+  facts: MemoryFact[];
+  coveredThrough: number;
+  folds: number;
+  updatedAt: number;
+}
+
 export interface PromptMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -65,6 +81,8 @@ export interface GenerationMeta {
   contextSize: number;
   thinkingLevel: ThinkingLevel;
   extrasDropped?: boolean;
+  memoryTokens?: number;
+  memoryFacts?: number;
 
   prompt?: PromptMessage[];
   systemSource: 'card' | 'default';
@@ -107,6 +125,7 @@ export interface Settings {
   maxTokens: number;
   contextSize: number;
   thinkingLevel: ThinkingLevel;
+  memoryTokens: number;
   chatBackground: string;
   chatBackgroundDim: number;
   hasApiKey: boolean;

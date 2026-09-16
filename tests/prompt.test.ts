@@ -16,6 +16,7 @@ const settings = (over: Partial<Settings> = {}): Settings => ({
   maxTokens: 100,
   contextSize: 4096,
   thinkingLevel: 'default',
+  memoryTokens: 800,
   chatBackground: '',
   chatBackgroundDim: 60,
   ...over,
@@ -132,6 +133,67 @@ test('a system prompt larger than the window keeps no history instead of crashin
   assert.equal(usedHistory, 0);
   assert.ok(historyBudget < 0);
   assert.equal(messages.length, 1, 'the system message is still sent');
+});
+
+const memory = (over: Partial<import('../server/store.ts').ChatMemory> = {}) => ({
+  version: 1 as const,
+  summary: 'Kai admitted forging the eastern coastline map.',
+  facts: [
+    { id: 'a', text: "Kai's left arm is broken", createdAt: 1 },
+    { id: 'b', text: 'They are travelling to Vey', createdAt: 2 },
+  ],
+  coveredThrough: 10,
+  folds: 1,
+  updatedAt: 0,
+  ...over,
+});
+
+test('memory is sent as its own block, after the character and before the history', () => {
+  const { messages, memoryTokens, memoryFacts } = buildPrompt(card(), settings(), history(2), memory());
+  assert.equal(messages[1].role, 'system');
+  assert.match(messages[1].content, /<memory>[\s\S]*forging the eastern coastline[\s\S]*<\/memory>/);
+  assert.match(messages[1].content, /- Kai's left arm is broken/);
+  assert.ok(memoryTokens > 0);
+  assert.equal(memoryFacts, 2);
+  assert.ok(messages[2].content.startsWith('message number 0.'), 'history follows the memory block');
+});
+
+test('memory is paid for out of the history budget', () => {
+  const plain = buildPrompt(card(), settings(), history(40));
+  const remembered = buildPrompt(card(), settings(), history(40), memory());
+
+  assert.equal(remembered.historyBudget, plain.historyBudget - remembered.memoryTokens);
+  assert.ok(remembered.memoryTokens > 0);
+});
+
+test('memory is left out entirely when the budget is zero', () => {
+  const { messages, memoryTokens } = buildPrompt(card(), settings({ memoryTokens: 0 }), history(2), memory());
+  assert.equal(memoryTokens, 0);
+  assert.ok(!messages.some((m) => m.content.includes('<memory>')));
+});
+
+test('empty memory sends no block', () => {
+  const { messages, memoryTokens } = buildPrompt(card(), settings(), history(2), memory({ summary: '', facts: [] }));
+  assert.equal(memoryTokens, 0);
+  assert.ok(!messages.some((m) => m.content.includes('<memory>')));
+});
+
+test('a memory larger than its budget drops facts rather than overrunning', () => {
+  const many = Array.from({ length: 60 }, (_, i) => ({
+    id: String(i),
+    text: `fact number ${i} with some padding words to take up room`,
+    createdAt: i,
+  }));
+  const { messages, memoryTokens } = buildPrompt(card(), settings({ memoryTokens: 120 }), [], memory({ facts: many }));
+
+  assert.ok(memoryTokens <= 120, `memory used ${memoryTokens} of a 120 budget`);
+  const block = messages.find((m) => m.content.includes('<memory>'))!;
+  assert.ok(block.content.includes('fact number 59'), 'the newest facts are the ones kept');
+});
+
+test('macros are applied inside remembered text', () => {
+  const { messages } = buildPrompt(card(), settings(), [], memory({ summary: '{{user}} lied to {{char}}.' }));
+  assert.match(messages[1].content, /Kai lied to Lyra\./);
 });
 
 test('card sections appear in a stable order', () => {

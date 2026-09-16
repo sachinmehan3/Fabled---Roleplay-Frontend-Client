@@ -512,6 +512,17 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
               onChange={(v) => set('contextSize', v)}
             />
 
+            <SliderField
+              id="memory-tokens"
+              label="Memory budget"
+              value={form.memoryTokens}
+              min={0}
+              max={4096}
+              step={64}
+              hint="Context set aside for what this chat remembers. It is taken out of the room for raw history, so a long chat keeps its past instead of the exact words. 0 turns memory off."
+              onChange={(v) => set('memoryTokens', v)}
+            />
+
             <div className="grid gap-3">
               <Label>Thinking level</Label>
               <div className="grid grid-cols-4 gap-2">

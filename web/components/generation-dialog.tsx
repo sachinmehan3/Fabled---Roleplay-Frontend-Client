@@ -227,6 +227,11 @@ export function GenerationDialog({ open, onOpenChange, messageId, swipeIndex, sw
                 <Stat label="Provider" value={meta.provider} />
                 <Stat label="Finish reason" value={meta.finishReason ?? 'not reported'} />
                 <Stat
+                  label="Memory"
+                  value={meta.memoryTokens ? `${num(meta.memoryTokens)} tokens` : 'none sent'}
+                  sub={meta.memoryFacts ? `summary + ${meta.memoryFacts} facts` : undefined}
+                />
+                <Stat
                   label="Thinking"
                   value={meta.thinkingLevel === 'default' ? 'provider default' : meta.thinkingLevel}
                   sub={meta.extrasDropped ? 'the provider refused the option and it was sent without it' : undefined}

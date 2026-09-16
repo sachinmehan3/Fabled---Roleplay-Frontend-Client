@@ -25,6 +25,7 @@ const CHARACTERS_FILE = path.join(DATA_DIR, 'characters.json');
 const CHATS_FILE = path.join(DATA_DIR, 'chats.json');
 const COUNTERS_FILE = path.join(DATA_DIR, 'counters.json');
 const chatFile = (chatId: number) => path.join(CHAT_DIR, `${chatId}.jsonl`);
+const memoryFile = (chatId: number) => path.join(CHAT_DIR, `${chatId}.memory.json`);
 const promptFile = (chatId: number) => path.join(CHAT_DIR, `${chatId}.prompts.jsonl`);
 
 // ---------- file helpers ----------
@@ -110,6 +111,8 @@ export interface Settings {
   maxTokens: number;
   contextSize: number;
   thinkingLevel: ThinkingLevel;
+  /** Context tokens set aside for chat memory. 0 turns memory off entirely. */
+  memoryTokens: number;
   chatBackground: string; // file name in data/avatars
   chatBackgroundDim: number; // 0-100, how far it fades into the page colour
 }
@@ -127,6 +130,7 @@ export const DEFAULT_SETTINGS: Settings = {
   maxTokens: 400,
   contextSize: 8192,
   thinkingLevel: 'default',
+  memoryTokens: 800,
   chatBackground: '',
   chatBackgroundDim: 60,
 };
@@ -238,6 +242,59 @@ export function deleteChat(id: number) {
   saveChats(allChats().filter((c) => c.id !== id));
   fs.rmSync(chatFile(id), { force: true });
   fs.rmSync(promptFile(id), { force: true });
+  fs.rmSync(memoryFile(id), { force: true });
+}
+
+// ---------- chat memory ----------
+
+export interface MemoryFact {
+  id: string;
+  text: string;
+  /** Pinned facts are never dropped to make room, and survive a clear. */
+  pinned?: boolean;
+  createdAt: number;
+}
+
+/** What a chat remembers once its older messages have left the context window. */
+export interface ChatMemory {
+  version: 1;
+  summary: string;
+  facts: MemoryFact[];
+  /** Memory covers every message up to and including this id. */
+  coveredThrough: number;
+  folds: number;
+  updatedAt: number;
+}
+
+export const EMPTY_MEMORY: ChatMemory = {
+  version: 1,
+  summary: '',
+  facts: [],
+  coveredThrough: 0,
+  folds: 0,
+  updatedAt: 0,
+};
+
+export function getMemory(chatId: number): ChatMemory {
+  const saved = readJson<Partial<ChatMemory>>(memoryFile(chatId), {});
+  return {
+    ...EMPTY_MEMORY,
+    ...saved,
+    summary: typeof saved.summary === 'string' ? saved.summary : '',
+    facts: Array.isArray(saved.facts) ? saved.facts.filter((f) => f && typeof f.text === 'string') : [],
+  };
+}
+
+export function saveMemory(chatId: number, memory: ChatMemory) {
+  writeJson(memoryFile(chatId), { ...memory, version: 1, updatedAt: Date.now() });
+}
+
+export function clearMemory(chatId: number): ChatMemory {
+  // Pinned facts are the ones a person put there by hand, so they stay.
+  const kept = getMemory(chatId).facts.filter((f) => f.pinned);
+  const cleared: ChatMemory = { ...EMPTY_MEMORY, facts: kept };
+  saveMemory(chatId, cleared);
+  return getMemory(chatId);
 }
 
 function bumpCount(chatId: number, delta: number) {
@@ -278,6 +335,8 @@ export interface GenerationMeta {
   thinkingLevel: ThinkingLevel;
   /** The provider refused the optional fields, so they were sent without them. */
   extrasDropped?: boolean;
+  memoryTokens?: number;
+  memoryFacts?: number;
 
   // Prompt. The messages themselves live in <chat>.prompts.jsonl.
   prompt?: PromptMessage[];

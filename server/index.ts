@@ -4,11 +4,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   AVATAR_DIR,
+  clearMemory,
   deleteChat,
   deleteCharacter,
   deleteMessage,
   getCharacter,
   getChat,
+  getMemory,
   getMessage,
   getPrompt,
   getSettings,
@@ -18,13 +20,17 @@ import {
   listCharacters,
   listChats,
   listMessages,
+  saveMemory,
   saveSettings,
   saveSwipes,
   updateCharacter,
   type CharacterRow,
+  type ChatMemory,
   type GenerationMeta,
+  type MemoryFact,
   type MessageRow,
 } from './store.ts';
+import { foldMemory } from './memory.ts';
 import './migrate-sqlite.ts'; // one-time import of an older data/rp.db, if one is there
 import { isPng, normalizeCard, parseCardFile, type CharacterCard } from './cards.ts';
 import { buildPrompt, estimateTokens } from './prompt.ts';
@@ -310,6 +316,47 @@ route('POST', '/api/chats/:id/messages', async ({ params, json }) => {
   return messageOut(insertMessage(chat.id, 'user', [content]));
 });
 
+// ---------- chat memory ----------
+
+route('GET', '/api/chats/:id/memory', ({ params }) => getMemory(requireChat(id(params.id)).id));
+
+// Body: { summary?, facts? } - what the memory panel saves after an edit.
+route('PUT', '/api/chats/:id/memory', async ({ params, json }) => {
+  const chat = requireChat(id(params.id));
+  const patch = await json<{ summary?: string; facts?: MemoryFact[] }>();
+  const current = getMemory(chat.id);
+  const next: ChatMemory = {
+    ...current,
+    summary: typeof patch.summary === 'string' ? patch.summary : current.summary,
+    facts: Array.isArray(patch.facts)
+      ? patch.facts
+          .filter((f) => f && typeof f.text === 'string' && f.text.trim())
+          .map((f, i) => ({
+            id: typeof f.id === 'string' && f.id ? f.id : `edit-${Date.now().toString(36)}-${i}`,
+            text: f.text.trim(),
+            pinned: Boolean(f.pinned),
+            createdAt: typeof f.createdAt === 'number' ? f.createdAt : Date.now(),
+          }))
+      : current.facts,
+  };
+  saveMemory(chat.id, next);
+  return getMemory(chat.id);
+});
+
+route('DELETE', '/api/chats/:id/memory', ({ params }) => clearMemory(requireChat(id(params.id)).id));
+
+// Summarise now, rather than waiting for messages to fall out of the window.
+route('POST', '/api/chats/:id/memory/fold', async ({ params }) => {
+  const chat = requireChat(id(params.id));
+  const character = requireCharacter(chat.character_id);
+  const settings = getSettings();
+  if (!settings.model) throw new HttpError(400, 'No model selected - open Settings first.');
+  const messages = listMessages(chat.id);
+  const updated = await foldMemory(chat.id, character.card, settings, messages.slice(0, -1));
+  if (!updated) throw new HttpError(400, 'Nothing new to remember yet.');
+  return updated;
+});
+
 // The full generation record for one swipe, including the prompt as it was sent.
 route('GET', '/api/messages/:id/meta/:swipe', ({ params }) => {
   const msg = getMessage(id(params.id));
@@ -363,7 +410,7 @@ route('POST', '/api/chats/:id/generate', async ({ params, json, res }) => {
   }
 
   const history = all.map((m) => ({ role: m.role, content: m.swipes[m.swipe_index] ?? '' }));
-  const built = buildPrompt(character.card, settings, history);
+  const built = buildPrompt(character.card, settings, history, getMemory(chat.id));
   const { messages } = built;
 
   res.writeHead(200, {
@@ -417,6 +464,8 @@ route('POST', '/api/chats/:id/generate', async ({ params, json, res }) => {
     historyTotal: history.length,
     historySent: built.usedHistory,
     historyBudget: built.historyBudget,
+    memoryTokens: built.memoryTokens,
+    memoryFacts: built.memoryFacts,
     estimatedPromptTokens: built.estimatedTokens,
     finishReason: report.finishReason,
     usage: report.usage,
@@ -443,6 +492,15 @@ route('POST', '/api/chats/:id/generate', async ({ params, json, res }) => {
   if (error) emit({ error, message: out });
   else emit({ done: true, message: out });
   res.end();
+
+  // Remember whatever just fell out of the window. This runs after the reply is
+  // sent, so a slow or failing summariser never delays the roleplay.
+  if (settings.memoryTokens > 0 && built.usedHistory < all.length) {
+    const forgotten = all.slice(0, all.length - built.usedHistory);
+    foldMemory(chat.id, character.card, settings, forgotten).catch((e: Error) =>
+      console.error(`Memory fold failed for chat ${chat.id}:`, e.message),
+    );
+  }
   return undefined;
 });
 

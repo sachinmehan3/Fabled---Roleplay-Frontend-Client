@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowUp, MessageSquarePlus, PanelLeft, Square } from 'lucide-react';
+import { ArrowUp, Brain, MessageSquarePlus, PanelLeft, Square } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, generate } from '@/api';
 import type { Character, GenerationMeta, Message, Settings } from '@/types';
@@ -13,6 +13,7 @@ import { avatarUrl, CharacterAvatar } from '@/components/character-avatar';
 import { MessageItem } from '@/components/message-item';
 import { ProfileDialog } from '@/components/profile-dialog';
 import { GenerationDialog } from '@/components/generation-dialog';
+import { MemoryDialog } from '@/components/memory-dialog';
 
 interface Props {
   chatId: number;
@@ -52,6 +53,7 @@ export function ChatView({
   const [input, setInput] = useState('');
   const [profile, setProfile] = useState<'character' | 'user' | null>(null);
   const [details, setDetails] = useState<Details | null>(null);
+  const [memoryOpen, setMemoryOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -216,6 +218,14 @@ export function ChatView({
         </div>
         <Tooltip>
           <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon-sm" onClick={() => setMemoryOpen(true)} aria-label="Chat memory">
+              <Brain />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>What {character.name} remembers</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
             <Button variant="outline" size="sm" onClick={onNewChat} disabled={!!streaming}>
               <MessageSquarePlus />
               <span className="hidden sm:inline">New chat</span>
@@ -361,6 +371,8 @@ export function ChatView({
           onEditCharacter();
         }}
       />
+
+      <MemoryDialog open={memoryOpen} onOpenChange={setMemoryOpen} chatId={chatId} characterName={character.name} />
 
       {details && (
         <GenerationDialog open onOpenChange={(o) => !o && setDetails(null)} {...details} />

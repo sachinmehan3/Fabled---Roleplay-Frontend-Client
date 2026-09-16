@@ -169,19 +169,24 @@ export interface ConnectionTest {
 }
 
 /**
- * The smallest real request there is: four tokens at temperature 0, no streaming
- * and no thinking. Enough to prove the URL, key and model all work together.
+ * One plain, non-streaming completion. Used for the connection test and for
+ * background jobs like folding memory - never for the roleplay itself.
+ * Deliberately sends no stream_options and no thinking parameter.
  */
-export async function testChat(settings: Settings): Promise<ConnectionTest> {
+export async function completeChat(
+  settings: Settings,
+  messages: ChatMessage[],
+  opts: { maxTokens: number; temperature: number; timeoutMs?: number },
+): Promise<ConnectionTest> {
   const res = await request(`${baseUrl(settings)}/chat/completions`, {
     method: 'POST',
     headers: headers(settings),
-    signal: AbortSignal.timeout(20_000), // never leave the button spinning
+    signal: AbortSignal.timeout(opts.timeoutMs ?? 20_000), // never hang forever
     body: JSON.stringify({
       model: settings.model,
-      messages: [{ role: 'user', content: 'Reply with the single word: ok' }],
-      max_tokens: 4,
-      temperature: 0,
+      messages,
+      max_tokens: opts.maxTokens,
+      temperature: opts.temperature,
       stream: false,
     }),
   });
@@ -195,6 +200,14 @@ export async function testChat(settings: Settings): Promise<ConnectionTest> {
     usage: json.usage,
     finishReason: choice?.finish_reason,
   };
+}
+
+/** The smallest real request there is: enough to prove URL, key and model work together. */
+export function testChat(settings: Settings): Promise<ConnectionTest> {
+  return completeChat(settings, [{ role: 'user', content: 'Reply with the single word: ok' }], {
+    maxTokens: 4,
+    temperature: 0,
+  });
 }
 
 export async function listModels(settings: Settings): Promise<string[]> {

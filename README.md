@@ -11,6 +11,7 @@ A minimal, hackable roleplay chat frontend in the spirit of SillyTavern.
 - **Swipes:** step through past replies, or press › on the latest reply to generate a new version
 - **Edit, copy, regenerate, delete (with confirmation) and Stop:** if you stop a reply midway, the partial text is kept
 - **Prompt builder** with `{{char}}` / `{{user}}` macros, card system prompt override (`{{original}}`), post-history instructions and a context budget that drops the oldest messages first
+- **Chat memory:** when older messages fall out of the window they are summarised into a rolling summary and a list of durable facts, sent with every reply and editable by hand
 - **Generation details:** every reply keeps a record - the prompt exactly as sent, how much of the history fit, token counts, timings and why the model stopped
 - **Safe markdown:** raw HTML from cards or models is escaped, and only http(s)/mailto links are allowed. `"dialogue"` is highlighted and `*actions*` are italicised
 - **Private API key:** it's stored server-side and never sent to the browser
@@ -69,6 +70,7 @@ data/
   counters.json              the next id for each kind of record
   chats/12.jsonl             the chat log - one JSON message per line, appended as you talk
   chats/12.prompts.jsonl     the prompt behind each generated reply, appended and never rewritten
+  chats/12.memory.json       what that chat remembers: summary, facts, how far it covers
   avatars/                   character and user pictures
 ```
 
@@ -98,6 +100,7 @@ untrusted card or model text and `dangerouslySetInnerHTML`.
 tests/              node:test suites for the logic above
 server/
   index.ts          routes + SSE generation endpoint
+  memory.ts         folds forgotten messages into a summary and facts
   store.ts          JSON/JSONL storage, settings, generation records
   migrate-sqlite.ts one-time import of an older data/rp.db
   cards.ts          PNG tEXt chunk reader, card normalization
@@ -139,6 +142,8 @@ web/
 | GET/POST | `/api/chats/:id/messages` | |
 | PATCH/DELETE | `/api/messages/:id` | `{content}` or `{swipe_index}` |
 | GET | `/api/messages/:id/meta/:swipe` | the generation record for one version, with its prompt |
+| GET/PUT/DELETE | `/api/chats/:id/memory` | read, edit or forget what a chat remembers |
+| POST | `/api/chats/:id/memory/fold` | summarise now instead of waiting for an overflow |
 | POST | `/api/chats/:id/generate` | `{mode: "new" \| "swipe"}` → SSE `{delta}` … `{done, message}` |
 
 ## Next steps
