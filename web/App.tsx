@@ -267,7 +267,6 @@ export function App() {
             character={character}
             settings={settings}
             onMessagesChanged={() => refreshChats(character.id).catch(() => {})}
-            onNewChat={run(() => newChat(character.id))}
             onOpenSidebar={openSidebar}
             sidebarCollapsed={!railOpen}
             onEditCharacter={() => openEditor(character)}

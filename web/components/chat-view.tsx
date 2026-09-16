@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowUp, Brain, MessageSquarePlus, PanelLeft, Square } from 'lucide-react';
+import { ArrowUp, Brain, PanelLeft, Square } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, generate } from '@/api';
 import type { Character, GenerationMeta, Message, Settings } from '@/types';
 import { cn } from '@/lib/utils';
 import { useConfirm } from '@/hooks/use-confirm';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -20,7 +19,6 @@ interface Props {
   character: Character;
   settings: Settings;
   onMessagesChanged: () => void;
-  onNewChat: () => void;
   onOpenSidebar: () => void;
   /** When the sidebar is collapsed the button that reopens it is shown at every width. */
   sidebarCollapsed: boolean;
@@ -41,7 +39,6 @@ export function ChatView({
   character,
   settings,
   onMessagesChanged,
-  onNewChat,
   onOpenSidebar,
   sidebarCollapsed,
   onEditCharacter,
@@ -183,59 +180,6 @@ export function ChatView({
           <div className="bg-background absolute inset-0" style={{ opacity: settings.chatBackgroundDim / 100 }} />
         </div>
       )}
-      {/* Header */}
-      <header className="bg-background/80 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10 flex h-14 shrink-0 items-center gap-3 border-b px-4 backdrop-blur">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className={cn(!sidebarCollapsed && 'md:hidden')}
-          onClick={onOpenSidebar}
-          aria-label="Open sidebar"
-        >
-          <PanelLeft />
-        </Button>
-        <CharacterAvatar
-          name={character.name}
-          file={character.avatar}
-          className="size-10"
-          onClick={() => setProfile('character')}
-          label={`View ${character.name}'s card`}
-        />
-        <button
-          type="button"
-          onClick={() => setProfile('character')}
-          className="min-w-0 flex-1 text-left outline-none"
-          aria-label={`View ${character.name}'s card`}
-        >
-          <div className="truncate text-sm font-semibold hover:underline">{character.name}</div>
-          {card.creator && <div className="text-muted-foreground truncate text-xs">by {card.creator}</div>}
-        </button>
-        <div className="hidden items-center gap-1.5 lg:flex">
-          {card.tags.slice(0, 4).map((t) => (
-            <Badge key={t} variant="secondary" className="font-normal">
-              {t}
-            </Badge>
-          ))}
-        </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon-sm" onClick={() => setMemoryOpen(true)} aria-label="Chat memory">
-              <Brain />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>What {character.name} remembers</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="outline" size="sm" onClick={onNewChat} disabled={!!streaming}>
-              <MessageSquarePlus />
-              <span className="hidden sm:inline">New chat</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Start a fresh chat with {character.name}</TooltipContent>
-        </Tooltip>
-      </header>
-
       {/* Messages */}
       <div
         ref={scrollRef}
@@ -245,7 +189,7 @@ export function ChatView({
           stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
         }}
       >
-        <div className="mx-auto w-full max-w-3xl px-4 py-6">
+        <div className="mx-auto w-full max-w-3xl px-4 pt-8 pb-6">
           {card.scenario && (
             <div className="bg-muted/40 text-muted-foreground mb-4 rounded-xl border border-dashed px-4 py-3 text-sm">
               <span className="text-foreground mr-1.5 font-medium">Scenario</span>
@@ -333,8 +277,31 @@ export function ChatView({
               }
             }}
           />
-          <div className="flex items-center justify-between gap-2 px-3 pt-1 pb-2.5">
-            <span className="text-muted-foreground hidden pl-1 text-xs sm:block">
+          <div className="flex items-center gap-1 px-3 pt-1 pb-2.5">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className={cn('text-muted-foreground', !sidebarCollapsed && 'md:hidden')}
+              onClick={onOpenSidebar}
+              aria-label="Open sidebar"
+            >
+              <PanelLeft />
+            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-muted-foreground"
+                  onClick={() => setMemoryOpen(true)}
+                  aria-label="Chat memory"
+                >
+                  <Brain />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>What {character.name} remembers</TooltipContent>
+            </Tooltip>
+            <span className="text-muted-foreground hidden truncate pl-1 text-xs lg:block">
               <kbd className="font-sans">Enter</kbd> to send · <kbd className="font-sans">Shift + Enter</kbd> for a new
               line · <kbd className="font-sans">Ctrl + Enter</kbd> to regenerate
             </span>
