@@ -257,7 +257,13 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
   /** Switch provider, restoring the URL you last used there. */
   const selectProvider = (label: string, fallback?: string) => {
     const url = providerUrls[label] ?? fallback;
-    if (url) set('apiBase', url);
+    if (url) {
+      set('apiBase', url);
+    } else if (label === CUSTOM) {
+      // No endpoint of your own yet: clear the field so you can type one.
+      set('apiBase', '');
+      requestAnimationFrame(() => document.getElementById('api-base')?.focus());
+    }
   };
 
   /** Editing the URL re-points whichever provider is currently selected. */
