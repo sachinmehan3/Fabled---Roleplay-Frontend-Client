@@ -280,7 +280,21 @@ route('POST', '/api/characters/import', async ({ body }) => {
     fs.writeFileSync(path.join(AVATAR_DIR, file), buf);
     updateCharacter(row.id, { avatar: file });
   }
-  return characterOut(requireCharacter(row.id));
+
+  // A V2/V3 card can carry its own lorebook; keep it, bound to this character.
+  let lorebook: { name: string; entries: number } | undefined;
+  if (parsed.book) {
+    try {
+      const book = insertLorebook({
+        ...importLorebook(parsed.book, `${row.name} lorebook`),
+        characterIds: [row.id],
+      });
+      lorebook = { name: book.name, entries: book.entries.length };
+    } catch (e) {
+      console.error(`Card lorebook for ${row.name} could not be read:`, (e as Error).message);
+    }
+  }
+  return { ...characterOut(requireCharacter(row.id)), lorebook };
 });
 
 // Body: a card as JSON (from the in-app character editor).

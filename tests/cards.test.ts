@@ -137,3 +137,26 @@ test('the bundled sample card still parses', (t) => {
   assert.equal(png, true);
   assert.ok(card.name.length > 0);
 });
+
+test('a V2 card carrying a lorebook hands it over', () => {
+  const buf = Buffer.from(
+    JSON.stringify({
+      spec: 'chara_card_v2',
+      data: {
+        name: 'Lyra',
+        description: 'A cartographer.',
+        character_book: { name: 'The Vale', entries: [{ keys: ['vale'], content: 'A green basin.', enabled: true, insertion_order: 10 }] },
+      },
+    }),
+    'utf8',
+  );
+  const { card, book } = parseCardFile(buf);
+  assert.equal(card.name, 'Lyra');
+  assert.ok(book, 'the book should come back with the card');
+  assert.equal((book as { name: string }).name, 'The Vale');
+});
+
+test('a card without a book hands back nothing', () => {
+  const buf = Buffer.from(JSON.stringify({ name: 'Lyra' }), 'utf8');
+  assert.equal(parseCardFile(buf).book, undefined);
+});

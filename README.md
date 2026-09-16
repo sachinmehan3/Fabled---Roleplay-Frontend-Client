@@ -4,7 +4,7 @@ A minimal, hackable roleplay chat frontend in the spirit of SillyTavern.
 
 - **Streaming chat** with any OpenAI-compatible API: OpenRouter, Ollama, LM Studio, KoboldCpp, llama.cpp, vLLM, OpenAI
 - **Clean shadcn/ui interface:** light and dark themes, works on phones, character search, toast notifications
-- **Character cards:** import Tavern Card V1/V2/V3 as PNG or JSON; alternate greetings become swipes
+- **Character cards:** import Tavern Card V1/V2/V3 as PNG or JSON; alternate greetings become swipes, and a lorebook embedded in the card comes with it
 - **Character editor:** write a card from scratch or edit any imported one, avatar included
 - **User card:** your own name, persona and picture, on their own Settings tab; the persona is sent with every prompt, and a vision model can write your appearance from your picture
 - **Expandable profiles:** click any avatar or name to see the full card picture and its fields
@@ -153,7 +153,7 @@ web/
 | GET | `/api/messages/:id/meta/:swipe` | the generation record for one version, with its prompt |
 | GET/POST | `/api/lorebooks` | list, or make a new one |
 | GET/PUT/DELETE | `/api/lorebooks/:id` | |
-| POST | `/api/lorebooks/import` | raw JSON: ours or a SillyTavern World Info export |
+| POST | `/api/lorebooks/import` | raw JSON: ours, a SillyTavern export, or a V2 `character_book` |
 | GET/PUT/DELETE | `/api/chats/:id/memory` | read, edit or forget what a chat remembers |
 | POST | `/api/chats/:id/memory/fold` | summarise now instead of waiting for an overflow |
 | POST | `/api/chats/:id/generate` | `{mode: "new" \| "swipe"}` → SSE `{delta}` … `{done, message}` |

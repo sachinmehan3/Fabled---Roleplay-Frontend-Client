@@ -75,15 +75,27 @@ export function normalizeCard(raw: unknown): CharacterCard {
   };
 }
 
+/**
+ * V2 and V3 cards may carry a lorebook inside them - cards from Chub usually do.
+ * Returned raw, for the lorebook importer to make sense of.
+ */
+export function extractBook(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const obj = raw as Record<string, unknown>;
+  const data = (obj.data && typeof obj.data === 'object' ? obj.data : obj) as Record<string, unknown>;
+  const book = data.character_book ?? obj.character_book;
+  return book && typeof book === 'object' ? book : undefined;
+}
+
 /** Parse an uploaded file (PNG card or JSON card). */
-export function parseCardFile(buf: Buffer): { card: CharacterCard; png: boolean } {
+export function parseCardFile(buf: Buffer): { card: CharacterCard; png: boolean; book: unknown } {
   if (isPng(buf)) {
     const text = readPngText(buf);
     const encoded = text['ccv3'] ?? text['chara'];
     if (!encoded) throw new Error('PNG has no embedded character data (chara/ccv3 chunk)');
     const json = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8'));
-    return { card: normalizeCard(json), png: true };
+    return { card: normalizeCard(json), png: true, book: extractBook(json) };
   }
   const json = JSON.parse(buf.toString('utf8'));
-  return { card: normalizeCard(json), png: false };
+  return { card: normalizeCard(json), png: false, book: extractBook(json) };
 }

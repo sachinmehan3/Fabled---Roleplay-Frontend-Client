@@ -121,7 +121,9 @@ export function App() {
   const importCharacter = async (file: File) => {
     const c = await api.importCharacter(file);
     setCharacters(await api.listCharacters());
-    toast.success(`Imported ${c.name}`);
+    toast.success(
+      c.lorebook ? `Imported ${c.name}, with ${c.lorebook.entries} lorebook entries` : `Imported ${c.name}`,
+    );
     await openCharacter(c.id);
   };
 

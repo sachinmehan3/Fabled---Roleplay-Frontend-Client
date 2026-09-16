@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { activateLore, entryMatches, matchesKey, EMPTY_ENTRY, type LoreEntry, type Lorebook } from '../server/lorebook.ts';
+import { importLorebook } from '../server/lorebook-import.ts';
 
 const estimateTokens = (t: string) => Math.ceil(t.length / 3.5) + 4;
 
@@ -320,4 +321,90 @@ test('cooldown starts only once sticky has run out', () => {
   const first = run([b], said('the Vale'));
   assert.equal(first.state['1:e' + n].sticky, 3);
   assert.equal(first.state['1:e' + n].cooldown, 5, 'two sticky messages, then two cooling');
+});
+
+// ---------- importing other people's books ----------
+
+test('a Character Card V2 book (Chub, and the card spec) imports', () => {
+  const imported = importLorebook(
+    {
+      name: 'The Vale',
+      scan_depth: 3,
+      token_budget: 512,
+      recursive_scanning: false,
+      entries: [
+        {
+          id: 7,
+          keys: ['vale', 'the vale'],
+          secondary_keys: ['siege'],
+          content: 'A green basin ruled from Tarn Keep.',
+          enabled: true,
+          insertion_order: 42,
+          constant: false,
+          position: 'before_char',
+          case_sensitive: true,
+          comment: 'The Vale',
+          extensions: {
+            selectiveLogic: 3,
+            probability: 60,
+            useProbability: true,
+            depth: 2,
+            role: 1,
+            group: 'places',
+            group_weight: 20,
+            exclude_recursion: true,
+            sticky: 4,
+          },
+        },
+        { keys: ['disabled one'], content: 'never', enabled: false, insertion_order: 1 },
+      ],
+    },
+    'fallback',
+  );
+
+  assert.equal(imported.name, 'The Vale');
+  assert.equal(imported.scanDepth, 3);
+  assert.equal(imported.budget, 512);
+  assert.equal(imported.maxRecursionSteps, 1, 'recursive_scanning false turns recursion off');
+
+  const [first, second] = imported.entries;
+  assert.deepEqual(first.keys, ['vale', 'the vale']);
+  assert.deepEqual(first.secondaryKeys, ['siege']);
+  assert.equal(first.logic, 'and_all');
+  assert.equal(first.order, 42, 'insertion_order, not priority');
+  assert.equal(first.position, 'before_char');
+  assert.equal(first.title, 'The Vale');
+  assert.equal(first.caseSensitive, true);
+  assert.equal(first.probability, 60);
+  assert.equal(first.group, 'places');
+  assert.equal(first.groupWeight, 20);
+  assert.equal(first.excludeRecursion, true);
+  assert.equal(first.sticky, 4);
+  assert.equal(second.enabled, false, 'enabled:false is respected');
+});
+
+test('a V2 entry with no extensions still gets sane defaults', () => {
+  const [entry] = importLorebook({ entries: [{ keys: ['x'], content: 'y', enabled: true, insertion_order: 5 }] }, 'n').entries;
+  assert.equal(entry.probability, 100);
+  assert.equal(entry.position, 'after_char');
+  assert.equal(entry.role, 'system');
+  assert.equal(entry.logic, 'and_any');
+  assert.equal(entry.caseSensitive, null, 'null means "use the book setting"');
+});
+
+test('a SillyTavern export still imports alongside the V2 shape', () => {
+  const imported = importLorebook(
+    { entries: { '0': { uid: 0, key: ['vale'], content: 'x', position: 4, depth: 3, role: 2, selectiveLogic: 2 } } },
+    'n',
+  );
+  assert.equal(imported.entries[0].position, 'at_depth');
+  assert.equal(imported.entries[0].depth, 3);
+  assert.equal(imported.entries[0].role, 'assistant');
+  assert.equal(imported.entries[0].logic, 'not_any');
+});
+
+test('one of our own exports round-trips unchanged', () => {
+  const mine = entry({ title: 'mine', keys: ['a'], order: 7, sticky: 2 });
+  const imported = importLorebook({ name: 'Mine', entries: [mine] }, 'n');
+  assert.deepEqual(imported.entries[0], mine);
 });

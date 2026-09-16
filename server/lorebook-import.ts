@@ -23,6 +23,53 @@ const bool = (v: unknown, fallback = false) => (typeof v === 'boolean' ? v : fal
 /** SillyTavern writes null for "use the book's setting". */
 const tri = (v: unknown): boolean | null => (typeof v === 'boolean' ? v : null);
 
+/**
+ * A Character Card V2 book entry, as Chub and the card spec write them. The
+ * field names differ from SillyTavern's own export, and the extras SillyTavern
+ * cares about ride along in `extensions` under either naming convention.
+ */
+function importV2Entry(raw: Record<string, unknown>, index: number): LoreEntry {
+  const ext = (raw.extensions && typeof raw.extensions === 'object' ? raw.extensions : {}) as Record<string, unknown>;
+  const pick = (...names: string[]) => names.map((n) => ext[n]).find((v) => v !== undefined);
+
+  const position = pick('position');
+  const fromNumber = typeof position === 'number' ? POSITION[position] : undefined;
+  const fromString = raw.position === 'before_char' || raw.position === 'after_char' ? raw.position : undefined;
+
+  const probability = num(pick('probability'), 100);
+  const useProbability = pick('useProbability', 'use_probability');
+
+  return {
+    ...EMPTY_ENTRY,
+    id: raw.id !== undefined ? `v2-${raw.id}` : `v2-${index}`,
+    title: typeof raw.comment === 'string' ? raw.comment : typeof raw.name === 'string' ? raw.name : '',
+    content: typeof raw.content === 'string' ? raw.content : '',
+    enabled: raw.enabled !== false,
+    mode: bool(raw.constant) ? 'constant' : 'selective',
+    keys: strings(raw.keys),
+    secondaryKeys: strings(raw.secondary_keys),
+    logic: LOGIC[num(pick('selectiveLogic', 'selective_logic'), 0)] ?? 'and_any',
+    position: fromNumber ?? fromString ?? 'after_char',
+    depth: num(pick('depth'), 4),
+    role: ROLE[num(pick('role'), 0)] ?? 'system',
+    // insertion_order is the V2 name; priority is a budget hint, not an order.
+    order: num(raw.insertion_order, 100),
+    caseSensitive: tri(raw.case_sensitive ?? pick('case_sensitive', 'caseSensitive')),
+    matchWholeWords: tri(pick('match_whole_words', 'matchWholeWords')),
+    scanDepth: typeof pick('scan_depth', 'scanDepth') === 'number' ? (pick('scan_depth', 'scanDepth') as number) : null,
+    probability: useProbability === false ? 100 : probability,
+    group: typeof pick('group') === 'string' ? (pick('group') as string) : '',
+    groupWeight: num(pick('group_weight', 'groupWeight'), 100),
+    prioritizeInclusion: bool(pick('group_override', 'groupOverride')),
+    excludeRecursion: bool(pick('exclude_recursion', 'excludeRecursion')),
+    preventRecursion: bool(pick('prevent_recursion', 'preventRecursion')),
+    delayUntilRecursion: Boolean(pick('delay_until_recursion', 'delayUntilRecursion')),
+    sticky: num(pick('sticky'), 0),
+    cooldown: num(pick('cooldown'), 0),
+    delay: num(pick('delay'), 0),
+  };
+}
+
 function importEntry(raw: Record<string, unknown>, index: number): LoreEntry {
   const constant = bool(raw.constant);
   return {
@@ -65,12 +112,14 @@ export function importLorebook(raw: unknown, fallbackName: string): Omit<Loreboo
   const rawEntries = obj.entries;
   let entries: LoreEntry[];
   if (Array.isArray(rawEntries)) {
-    entries = rawEntries.map((e, i) =>
+    entries = rawEntries.map((e, i) => {
+      const obj = (e ?? {}) as Record<string, unknown>;
       // One of our own exports already has the right shape.
-      e && typeof e === 'object' && 'mode' in e
-        ? { ...EMPTY_ENTRY, ...(e as LoreEntry), id: String((e as LoreEntry).id ?? `e-${i}`) }
-        : importEntry(e as Record<string, unknown>, i),
-    );
+      if ('mode' in obj) return { ...EMPTY_ENTRY, ...(obj as unknown as LoreEntry), id: String(obj.id ?? `e-${i}`) };
+      // A Character Card V2 book says `keys`; SillyTavern says `key`.
+      if (Array.isArray(obj.keys) || 'insertion_order' in obj) return importV2Entry(obj, i);
+      return importEntry(obj, i);
+    });
   } else if (rawEntries && typeof rawEntries === 'object') {
     entries = Object.values(rawEntries as Record<string, unknown>).map((e, i) =>
       importEntry((e ?? {}) as Record<string, unknown>, i),
@@ -86,11 +135,12 @@ export function importLorebook(raw: unknown, fallbackName: string): Omit<Loreboo
     name: typeof obj.name === 'string' && obj.name.trim() ? obj.name.trim() : fallbackName,
     enabled: true,
     characterIds: [],
-    scanDepth: num(obj.scanDepth, 4),
-    caseSensitive: bool(obj.caseSensitive),
-    matchWholeWords: bool(obj.matchWholeWords, true),
-    maxRecursionSteps: num(obj.maxRecursionSteps, 2),
-    budget: num(obj.budget, 1024),
+    // Book-level settings under both our names and the V2 spec's.
+    scanDepth: num(obj.scanDepth ?? obj.scan_depth, 4),
+    caseSensitive: bool(obj.caseSensitive ?? obj.case_sensitive),
+    matchWholeWords: bool(obj.matchWholeWords ?? obj.match_whole_words, true),
+    maxRecursionSteps: num(obj.maxRecursionSteps, obj.recursive_scanning === false ? 1 : 2),
+    budget: num(obj.budget ?? obj.token_budget, 1024),
     entries,
   };
 }
