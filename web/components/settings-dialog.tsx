@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { AvatarPicker } from '@/components/avatar-picker';
+import { ModelCombobox } from '@/components/model-combobox';
 import { BackgroundPicker } from '@/components/background-picker';
 import { Field } from '@/components/form-field';
 
@@ -361,23 +362,18 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
               label="Model"
               hint={
                 models.length
-                  ? `${models.length} models known for this provider — start typing to filter, or fetch again to refresh.`
+                  ? `${models.length} models known for this provider — pick one from the list, or type any name.`
                   : 'Fetch the list, or type a model name yourself.'
               }
             >
               <div className="flex gap-2">
-                <Input
+                <ModelCombobox
                   id="model"
-                  list="model-list"
                   value={form.model}
-                  onChange={(e) => set('model', e.target.value)}
+                  models={models}
                   placeholder="e.g. llama3.1:8b"
+                  onChange={(v) => set('model', v)}
                 />
-                <datalist id="model-list">
-                  {models.map((m) => (
-                    <option key={m} value={m} />
-                  ))}
-                </datalist>
                 <Button type="button" variant="outline" onClick={fetchModels} disabled={status.kind === 'loading'}>
                   {status.kind === 'loading' ? <LoaderCircle className="animate-spin" /> : <RefreshCw />}
                   Fetch models
