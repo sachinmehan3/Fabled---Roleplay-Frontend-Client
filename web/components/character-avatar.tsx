@@ -47,7 +47,7 @@ export function CharacterAvatar({
   const url = src ?? avatarUrl(file);
   const avatar = (
     <Avatar
-      className={cn('rp-avatar size-9 rounded-lg', className)}
+      className={cn('rp-avatar size-9', className)}
       style={{ '--avatar-hue': `${hueFor(name)}deg` } as CSSProperties}
     >
       {url && <AvatarImage src={url} alt="" />}
@@ -62,7 +62,7 @@ export function CharacterAvatar({
       type="button"
       onClick={onClick}
       aria-label={label ?? `View ${name}`}
-      className="focus-visible:ring-ring/50 h-fit shrink-0 rounded-lg outline-none transition hover:opacity-80 focus-visible:ring-[3px]"
+      className="focus-visible:ring-ring/50 h-fit shrink-0 rounded-full outline-none transition hover:opacity-80 focus-visible:ring-[3px]"
     >
       {avatar}
     </button>
