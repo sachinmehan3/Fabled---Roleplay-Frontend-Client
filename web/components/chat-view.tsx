@@ -28,7 +28,7 @@ interface Props {
   onEditUser: () => void;
 }
 
-type Streaming = { mode: 'new' | 'swipe'; text: string } | null;
+type Streaming = { mode: 'new' | 'swipe'; text: string; reasoning: string } | null;
 type Details = { messageId: number; swipeIndex: number; swipeCount: number; meta: GenerationMeta | null };
 
 const applyMacros = (text: string, char: string, user: string) =>
@@ -79,11 +79,12 @@ export function ChatView({
     const controller = new AbortController();
     abortRef.current = controller;
     stickToBottom.current = true;
-    setStreaming({ mode, text: '' });
+    setStreaming({ mode, text: '', reasoning: '' });
     try {
       await generate(chatId, mode, {
         signal: controller.signal,
         onDelta: (d) => setStreaming((s) => (s ? { ...s, text: s.text + d } : s)),
+        onReasoning: (d) => setStreaming((s) => (s ? { ...s, reasoning: s.reasoning + d } : s)),
       });
     } catch (e) {
       if (!controller.signal.aborted) errorToast(e);
@@ -269,6 +270,11 @@ export function ChatView({
                   onRegenerate={safe(() => runGeneration('swipe'))}
                   onEdit={safe((content: string) => edit(m, content))}
                   onDelete={safe(() => remove(m))}
+                  reasoning={isStreamTarget ? streaming.reasoning : undefined}
+                  reasoningChars={m.meta?.[m.swipe_index]?.reasoningChars}
+                  onLoadReasoning={() =>
+                    api.getMessageMeta(m.id, m.swipe_index).then((full) => full.reasoning ?? '')
+                  }
                   onOpenProfile={() => setProfile(isUser ? 'user' : 'character')}
                   onOpenDetails={() =>
                     setDetails({
@@ -286,6 +292,7 @@ export function ChatView({
                 name={character.name}
                 avatar={character.avatar}
                 text={streaming.text}
+                reasoning={streaming.reasoning}
                 streaming
                 isLast
                 busy

@@ -71,6 +71,67 @@ function headers(s: Settings): Record<string, string> {
   return h;
 }
 
+/** One piece of a reply: either prose, or the model thinking out loud. */
+export interface StreamDelta {
+  text: string;
+  reasoning?: boolean;
+}
+
+const OPEN = '<think>';
+const CLOSE = '</think>';
+
+/** True when `tail` could still grow into `tag`, so it must not be emitted yet. */
+function isPartialTag(tail: string, tag: string) {
+  return tail.length < tag.length && tag.startsWith(tail);
+}
+
+/**
+ * Some models mark their reasoning with <think> tags inside the normal content
+ * instead of a separate field, and the tags can be split across chunks. This
+ * keeps the state needed to pull them apart safely.
+ */
+export function createThinkSplitter() {
+  let inThink = false;
+  let pending = '';
+
+  const take = (chunk: string, final: boolean): StreamDelta[] => {
+    const out: StreamDelta[] = [];
+    let rest = pending + chunk;
+    pending = '';
+
+    for (;;) {
+      const tag = inThink ? CLOSE : OPEN;
+      const at = rest.indexOf(tag);
+      if (at !== -1) {
+        const before = rest.slice(0, at);
+        if (before) out.push(inThink ? { text: before, reasoning: true } : { text: before });
+        rest = rest.slice(at + tag.length);
+        inThink = !inThink;
+        continue;
+      }
+
+      // Hold back a tail that might be the start of a tag arriving in pieces.
+      if (!final) {
+        for (let keep = Math.min(rest.length, tag.length - 1); keep > 0; keep--) {
+          if (isPartialTag(rest.slice(rest.length - keep), tag)) {
+            pending = rest.slice(rest.length - keep);
+            rest = rest.slice(0, rest.length - keep);
+            break;
+          }
+        }
+      }
+      if (rest) out.push(inThink ? { text: rest, reasoning: true } : { text: rest });
+      return out;
+    }
+  };
+
+  return {
+    push: (chunk: string) => take(chunk, false),
+    /** Emit whatever was being held back at the end of the stream. */
+    flush: () => take('', true),
+  };
+}
+
 /** Facts about the response that only the stream knows; filled in as it is read. */
 export interface StreamReport {
   modelReported?: string;
@@ -80,15 +141,24 @@ export interface StreamReport {
   extrasDropped?: boolean;
 }
 
+/** Providers disagree on where reasoning goes; take whichever field is present. */
+function reasoningOf(delta: any): string {
+  for (const key of ['reasoning_content', 'reasoning', 'thinking']) {
+    const value = delta?.[key];
+    if (typeof value === 'string' && value) return value;
+  }
+  return '';
+}
+
 const EFFORTS = ['low', 'medium', 'high'];
 
-/** Yields text deltas as they arrive. Throws on HTTP/API errors. */
+/** Yields prose and reasoning as they arrive. Throws on HTTP/API errors. */
 export async function* streamChat(
   settings: Settings,
   messages: ChatMessage[],
   signal: AbortSignal,
   report: StreamReport = {},
-): AsyncGenerator<string> {
+): AsyncGenerator<StreamDelta> {
   const url = `${baseUrl(settings)}/chat/completions`;
 
   // Fields beyond the bare minimum. Most servers ignore what they don't know;
@@ -126,6 +196,7 @@ export async function* streamChat(
   if (!res.body) throw new Error('The provider sent no response body.');
 
   const decoder = new TextDecoder();
+  const think = createThinkSplitter();
   let buffer = '';
   for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
     buffer += decoder.decode(chunk, { stream: true });
@@ -135,7 +206,10 @@ export async function* streamChat(
       buffer = buffer.slice(nl + 1);
       if (!line.startsWith('data:')) continue;
       const payload = line.slice(5).trim();
-      if (payload === '[DONE]') return;
+      if (payload === '[DONE]') {
+        yield* think.flush();
+        return;
+      }
       let json: any;
       try {
         json = JSON.parse(payload);
@@ -155,10 +229,13 @@ export async function* streamChat(
           total_tokens: u.total_tokens ?? undefined,
         };
       }
-      const delta = choice?.delta?.content;
-      if (typeof delta === 'string' && delta) yield delta;
+      const reasoning = reasoningOf(choice?.delta);
+      if (reasoning) yield { text: reasoning, reasoning: true };
+      const content = choice?.delta?.content;
+      if (typeof content === 'string' && content) yield* think.push(content);
     }
   }
+  yield* think.flush(); // the stream ended without a [DONE] line
 }
 
 export interface ConnectionTest {

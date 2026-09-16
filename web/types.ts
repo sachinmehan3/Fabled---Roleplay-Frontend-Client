@@ -86,6 +86,9 @@ export interface GenerationMeta {
 
   finishReason?: string;
   usage?: TokenUsage;
+  /** Only present on a record fetched with api.getMessageMeta(). */
+  reasoning?: string;
+  reasoningChars?: number;
   outputChars: number;
   estimatedCompletionTokens: number;
   msToFirstToken?: number;

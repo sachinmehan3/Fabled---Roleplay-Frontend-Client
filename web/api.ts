@@ -61,6 +61,7 @@ export const api = {
 
 export interface StreamHandlers {
   onDelta: (text: string) => void;
+  onReasoning?: (text: string) => void;
   signal: AbortSignal;
 }
 
@@ -68,7 +69,7 @@ export interface StreamHandlers {
 export async function generate(
   chatId: number,
   mode: 'new' | 'swipe',
-  { onDelta, signal }: StreamHandlers,
+  { onDelta, onReasoning, signal }: StreamHandlers,
 ): Promise<Message | undefined> {
   const res = await fetch(`/api/chats/${chatId}/generate`, {
     method: 'POST',
@@ -96,6 +97,7 @@ export async function generate(
       if (!line) continue;
       const data = JSON.parse(line.slice(5));
       if (data.delta) onDelta(data.delta);
+      if (data.reasoning) onReasoning?.(data.reasoning);
       if (data.message) saved = data.message;
       if (data.error) {
         const err = new Error(data.error) as Error & { saved?: Message };

@@ -1,5 +1,17 @@
 import { memo, useMemo, useState, type ReactNode } from 'react';
-import { Activity, Check, ChevronLeft, ChevronRight, Copy, Pencil, RefreshCw, Trash2 } from 'lucide-react';
+import {
+  Activity,
+  Brain,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  ChevronRight as Caret,
+  Copy,
+  LoaderCircle,
+  Pencil,
+  RefreshCw,
+  Trash2,
+} from 'lucide-react';
 import type { Message } from '@/types';
 import { renderMarkdown } from '@/markdown';
 import { cn } from '@/lib/utils';
@@ -22,6 +34,68 @@ interface Props {
   onDelete?: () => void;
   onOpenProfile?: () => void;
   onOpenDetails?: () => void;
+  /** Thinking as it streams in, for the reply being written right now. */
+  reasoning?: string;
+  /** Size of the saved thinking, so the toggle can appear without fetching it. */
+  reasoningChars?: number;
+  /** Fetches the saved thinking when the reader opens the panel. */
+  onLoadReasoning?: () => Promise<string>;
+}
+
+/** What the model worked through before answering, folded away until asked for. */
+function Thinking({
+  live,
+  chars,
+  onLoad,
+}: {
+  live?: string;
+  chars?: number;
+  onLoad?: () => Promise<string>;
+}) {
+  const [toggled, setToggled] = useState<boolean | null>(null);
+  const [loaded, setLoaded] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Follows along while it streams, then folds itself away once the reply lands.
+  const open = toggled ?? !!live;
+  const text = live || loaded;
+
+  const toggle = async () => {
+    const next = !open;
+    setToggled(next);
+    if (!next || live || loaded || !onLoad) return;
+    setLoading(true);
+    try {
+      setLoaded(await onLoad());
+    } catch {
+      setLoaded('This reply’s thinking could not be loaded.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const size = live ? live.length : (chars ?? 0);
+
+  return (
+    <div className="mb-1.5">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 -ml-1 flex items-center gap-1.5 rounded-md px-1 py-0.5 text-xs outline-none focus-visible:ring-[3px]"
+      >
+        {loading ? <LoaderCircle className="size-3.5 animate-spin" /> : <Brain className="size-3.5" />}
+        {live ? 'Thinking' : 'Thought'} {size ? `· ${size.toLocaleString()} characters` : ''}
+        <Caret className={cn('size-3.5 transition-transform', open && 'rotate-90')} />
+      </button>
+
+      {open && (
+        <div className="border-border/60 text-muted-foreground mt-1 max-h-64 overflow-y-auto border-l-2 pl-3 text-xs whitespace-pre-wrap">
+          {text || (loading ? '' : 'Nothing was recorded for this reply.')}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function IconAction({
@@ -128,6 +202,10 @@ export const MessageItem = memo(function MessageItem(p: Props) {
             </div>
           )}
         </div>
+
+        {!isUser && (p.reasoning || p.reasoningChars) && !editing && (
+          <Thinking live={p.reasoning} chars={p.reasoningChars} onLoad={p.onLoadReasoning} />
+        )}
 
         {editing ? (
           <div className="mt-1 space-y-2">

@@ -320,8 +320,9 @@ export interface GenerationMeta {
   extrasDropped?: boolean;
   memoryTokens?: number;
 
-  // Prompt. The messages themselves live in <chat>.prompts.jsonl.
+  // Bulky fields: these live in <chat>.prompts.jsonl, not in the chat log.
   prompt?: PromptMessage[];
+  reasoning?: string;
   systemSource: 'card' | 'default';
   usedOriginalMacro: boolean;
   hasPostHistory: boolean;
@@ -334,35 +335,46 @@ export interface GenerationMeta {
   finishReason?: string;
   usage?: TokenUsage;
   outputChars: number;
+  /** How much the model thought before answering; 0 when it did not, or did not say. */
+  reasoningChars?: number;
   estimatedCompletionTokens: number;
   msToFirstToken?: number;
   msTotal: number;
 }
 
-interface PromptLine {
+interface RecordLine {
   message_id: number;
   swipe: number;
-  prompt: PromptMessage[];
+  prompt?: PromptMessage[];
+  reasoning?: string;
 }
 
-/** The prompt behind one swipe, or undefined if it wasn't kept. */
-export function getPrompt(chatId: number, messageId: number, swipe: number): PromptMessage[] | undefined {
-  const lines = readJsonl<PromptLine>(promptFile(chatId));
+/** The prompt and reasoning behind one swipe, or undefined if nothing was kept. */
+export function getRecord(chatId: number, messageId: number, swipe: number): Omit<RecordLine, 'message_id' | 'swipe'> | undefined {
+  const lines = readJsonl<RecordLine>(promptFile(chatId));
   // Read backwards: the newest line for a swipe wins.
   for (let i = lines.length - 1; i >= 0; i--) {
-    if (lines[i].message_id === messageId && lines[i].swipe === swipe) return lines[i].prompt;
+    if (lines[i].message_id === messageId && lines[i].swipe === swipe) {
+      return { prompt: lines[i].prompt, reasoning: lines[i].reasoning };
+    }
   }
   return undefined;
 }
 
-function savePrompt(chatId: number, messageId: number, swipe: number, prompt: PromptMessage[]) {
-  appendJsonl(promptFile(chatId), { message_id: messageId, swipe, prompt } satisfies PromptLine);
+function saveRecord(chatId: number, messageId: number, swipe: number, meta: GenerationMeta) {
+  if (!meta.prompt && !meta.reasoning) return;
+  appendJsonl(promptFile(chatId), {
+    message_id: messageId,
+    swipe,
+    prompt: meta.prompt,
+    reasoning: meta.reasoning,
+  } satisfies RecordLine);
 }
 
-function dropPrompts(chatId: number, messageId: number) {
+function dropRecords(chatId: number, messageId: number) {
   const file = promptFile(chatId);
   if (!fs.existsSync(file)) return;
-  const kept = readJsonl<PromptLine>(file).filter((l) => l.message_id !== messageId);
+  const kept = readJsonl<RecordLine>(file).filter((l) => l.message_id !== messageId);
   writeJsonl(file, kept);
 }
 
@@ -421,22 +433,22 @@ export function insertMessage(
     chat_id: chatId,
     role,
     swipes,
-    meta: swipes.map((_, i) => withoutPrompt(meta[i])),
+    meta: swipes.map((_, i) => withoutBulk(meta[i])),
     swipe_index: 0,
     created_at: createdAt,
   };
   appendJsonl(chatFile(chatId), row);
   chatOfMessage.set(row.id, chatId);
   bumpCount(chatId, 1);
-  // The prompt could only be written once the message had an id.
-  meta.forEach((m, i) => m?.prompt && savePrompt(chatId, row.id, i, m.prompt));
+  // These could only be written once the message had an id.
+  meta.forEach((m, i) => m && saveRecord(chatId, row.id, i, m));
   return alignMeta(row);
 }
 
-/** The record as it is kept in the log: everything except the prompt itself. */
-function withoutPrompt(meta: GenerationMeta | null | undefined): GenerationMeta | null {
+/** The record as it is kept in the log: everything except the bulky fields. */
+function withoutBulk(meta: GenerationMeta | null | undefined): GenerationMeta | null {
   if (!meta) return null;
-  const { prompt: _prompt, ...rest } = meta;
+  const { prompt: _prompt, reasoning: _reasoning, ...rest } = meta;
   return rest;
 }
 
@@ -448,11 +460,11 @@ export function saveSwipes(id: number, swipes: string[], meta: (GenerationMeta |
   const row = rows.find((m) => m.id === id);
   if (!row) return;
   row.swipes = swipes;
-  row.meta = swipes.map((_, i) => withoutPrompt(meta[i]));
+  row.meta = swipes.map((_, i) => withoutBulk(meta[i]));
   row.swipe_index = swipeIndex;
   writeJsonl(chatFile(chatId), rows);
-  // Only a freshly generated swipe carries a prompt; everything else was already stripped.
-  meta.forEach((m, i) => m?.prompt && savePrompt(chatId, id, i, m.prompt));
+  // Only a freshly generated swipe carries these; everything else was already stripped.
+  meta.forEach((m, i) => m && saveRecord(chatId, id, i, m));
 }
 
 export function deleteMessage(id: number) {
@@ -462,7 +474,7 @@ export function deleteMessage(id: number) {
   const kept = rows.filter((m) => m.id !== id);
   if (kept.length === rows.length) return;
   writeJsonl(chatFile(chatId), kept);
-  dropPrompts(chatId, id);
+  dropRecords(chatId, id);
   chatOfMessage.delete(id);
   bumpCount(chatId, -1);
 }

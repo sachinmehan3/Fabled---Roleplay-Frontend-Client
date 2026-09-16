@@ -12,7 +12,7 @@ import {
   getChat,
   getMemory,
   getMessage,
-  getPrompt,
+  getRecord,
   getSettings,
   insertChat,
   insertCharacter,
@@ -348,7 +348,7 @@ route('GET', '/api/messages/:id/meta/:swipe', ({ params }) => {
   const swipe = id(params.swipe);
   const meta = msg.meta[swipe];
   if (!meta) throw new HttpError(404, 'No generation record for this version');
-  return { ...meta, prompt: getPrompt(msg.chat_id, msg.id, swipe) };
+  return { ...meta, ...getRecord(msg.chat_id, msg.id, swipe) };
 });
 
 // Edit the active swipe's text, or change which swipe is active.
@@ -416,12 +416,18 @@ route('POST', '/api/chats/:id/generate', async ({ params, json, res }) => {
   const startedAt = Date.now();
   let firstTokenAt: number | undefined;
   let text = '';
+  let reasoning = '';
   let error: string | null = null;
   try {
-    for await (const delta of streamChat(settings, messages, controller.signal, report)) {
-      firstTokenAt ??= Date.now();
-      text += delta;
-      emit({ delta });
+    for await (const part of streamChat(settings, messages, controller.signal, report)) {
+      if (part.reasoning) {
+        reasoning += part.text;
+        emit({ reasoning: part.text });
+        continue;
+      }
+      firstTokenAt ??= Date.now(); // the clock starts at the first word of the reply
+      text += part.text;
+      emit({ delta: part.text });
     }
   } catch (e) {
     if (!controller.signal.aborted) error = (e as Error).message;
@@ -452,6 +458,8 @@ route('POST', '/api/chats/:id/generate', async ({ params, json, res }) => {
     estimatedPromptTokens: built.estimatedTokens,
     finishReason: report.finishReason,
     usage: report.usage,
+    reasoning: reasoning.trim() || undefined,
+    reasoningChars: reasoning.trim().length || undefined,
     outputChars: text.length,
     estimatedCompletionTokens: estimateTokens(text),
     msToFirstToken: firstTokenAt && firstTokenAt - startedAt,

@@ -255,6 +255,11 @@ export function GenerationDialog({ open, onOpenChange, messageId, swipeIndex, sw
                 />
                 <Stat label="Reply characters" value={num(meta.outputChars)} />
                 <Stat
+                  label="Thought before replying"
+                  value={meta.reasoningChars ? `${num(meta.reasoningChars)} characters` : 'no'}
+                  sub={meta.reasoningChars ? 'shown above the message' : undefined}
+                />
+                <Stat
                   label="Time to first token"
                   value={meta.msToFirstToken ? duration(meta.msToFirstToken) : '—'}
                   sub="how long the model took to start"

@@ -114,7 +114,7 @@ test('a record is kept per swipe, with the prompt in the sidecar file', () => {
   const line = fs.readFileSync(path.join(dir, 'chats', `${chat.id}.jsonl`), 'utf8');
   assert.ok(!line.includes('You are Recorded.'), 'the prompt must not be in the chat log');
   assert.equal(store.getMessage(msg.id)?.meta[0]?.status, 'ok');
-  assert.deepEqual(store.getPrompt(chat.id, msg.id, 0), prompt);
+  assert.deepEqual(store.getRecord(chat.id, msg.id, 0)?.prompt, prompt);
 });
 
 test('a second swipe gets its own record and prompt', () => {
@@ -130,7 +130,23 @@ test('a second swipe gets its own record and prompt', () => {
   assert.deepEqual(saved.swipes, ['One.', 'Two.']);
   assert.equal(saved.swipe_index, 1);
   assert.equal(saved.meta[1]?.status, 'stopped');
-  assert.deepEqual(store.getPrompt(chat.id, msg.id, 1), second);
+  assert.deepEqual(store.getRecord(chat.id, msg.id, 1)?.prompt, second);
+});
+
+test('reasoning is kept beside the log, not inside it', () => {
+  const c = store.insertCharacter('Thinker', card('Thinker'));
+  const chat = store.insertChat(c.id, 'A chat');
+  const msg = store.insertMessage(
+    chat.id,
+    'assistant',
+    ['The answer.'],
+    [meta({ reasoning: 'First I considered the map.', reasoningChars: 27 })],
+  );
+
+  const line = fs.readFileSync(path.join(dir, 'chats', `${chat.id}.jsonl`), 'utf8');
+  assert.ok(!line.includes('First I considered'), 'thinking must not bloat the chat log');
+  assert.equal(store.getMessage(msg.id)?.meta[0]?.reasoningChars, 27, 'but its size stays, so the UI knows');
+  assert.equal(store.getRecord(chat.id, msg.id, 0)?.reasoning, 'First I considered the map.');
 });
 
 test('records stay aligned with swipes when a message has none', () => {
@@ -150,7 +166,7 @@ test('deleting a message prunes its prompts and updates the count', () => {
   assert.equal(store.getMessage(drop.id), undefined);
   assert.equal(store.getMessage(keep.id)?.swipes[0], 'Keep me.');
   assert.equal(store.getChat(chat.id)?.message_count, 1);
-  assert.equal(store.getPrompt(chat.id, drop.id, 0), undefined);
+  assert.equal(store.getRecord(chat.id, drop.id, 0), undefined);
 });
 
 test('deleting a character takes its chats and their files with it', () => {

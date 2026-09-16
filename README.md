@@ -11,6 +11,7 @@ A minimal, hackable roleplay chat frontend in the spirit of SillyTavern.
 - **Swipes:** step through past replies, or press › on the latest reply to generate a new version
 - **Edit, copy, regenerate, delete (with confirmation) and Stop:** if you stop a reply midway, the partial text is kept
 - **Prompt builder** with `{{char}}` / `{{user}}` macros, card system prompt override (`{{original}}`), post-history instructions and a context budget that drops the oldest messages first
+- **Model thinking:** reasoning is streamed into a fold-away panel above the reply, whether the provider sends it as `reasoning_content`, `reasoning` or `<think>` tags in the text
 - **Chat memory:** when older messages fall out of the window they are summarised into a rolling summary, sent with every reply and editable by hand
 - **Generation details:** every reply keeps a record - the prompt exactly as sent, how much of the history fit, token counts, timings and why the model stopped
 - **Safe markdown:** raw HTML from cards or models is escaped, and only http(s)/mailto links are allowed. `"dialogue"` is highlighted and `*actions*` are italicised
@@ -69,7 +70,7 @@ data/
   chats.json                 one line per chat: which character, title, message count
   counters.json              the next id for each kind of record
   chats/12.jsonl             the chat log - one JSON message per line, appended as you talk
-  chats/12.prompts.jsonl     the prompt behind each generated reply, appended and never rewritten
+  chats/12.prompts.jsonl     the prompt and thinking behind each reply, appended and never rewritten
   chats/12.memory.json       what that chat remembers: the summary and how far it covers
   avatars/                   character and user pictures
 ```
