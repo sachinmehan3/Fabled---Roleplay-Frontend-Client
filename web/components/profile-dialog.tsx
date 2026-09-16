@@ -40,7 +40,7 @@ export function ProfileDialog({ open, onOpenChange, name, avatar, subtitle, tags
           {url ? (
             <img src={url} alt={name} className="max-h-72 w-auto max-w-full rounded-xl border object-contain shadow-sm" />
           ) : (
-            <CharacterAvatar name={name} className="size-24" fallbackClassName="text-2xl" />
+            <CharacterAvatar name={name} className="size-24 rounded-xl" fallbackClassName="text-2xl" />
           )}
           <DialogHeader className="items-center gap-1 text-center">
             <DialogTitle className="text-xl">{name}</DialogTitle>
