@@ -32,6 +32,7 @@ import { AvatarPicker } from '@/components/avatar-picker';
 import { ModelCombobox } from '@/components/model-combobox';
 import { Select } from '@/components/ui/select';
 import { BackgroundPicker } from '@/components/background-picker';
+import { Checkbox } from '@/components/ui/select';
 import { Field } from '@/components/form-field';
 
 const PRESETS: { label: string; apiBase: string; needsKey?: boolean }[] = [
@@ -567,6 +568,20 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
               />
               <p className="text-muted-foreground text-xs">
                 Sits behind every chat. PNG, JPEG, WebP or GIF, scaled to cover the window.
+              </p>
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Messages</Label>
+              <Checkbox
+                checked={form.messageBubbles}
+                onChange={(v) => set('messageBubbles', v)}
+                label="Draw a panel behind every message"
+                className="text-sm"
+              />
+              <p className="text-muted-foreground text-xs">
+                On, both sides sit in their own panel. Off, the writing sits plainly on the page and a thin rule
+                separates one message from the next.
               </p>
             </div>
 

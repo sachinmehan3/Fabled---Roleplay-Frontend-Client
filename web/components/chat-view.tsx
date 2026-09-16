@@ -224,7 +224,7 @@ export function ChatView({
               {macros(card.scenario)}
             </div>
           )}
-          <div className="divide-border/60 divide-y">
+          <div className={cn(settings.messageBubbles ? 'space-y-1' : 'divide-border/60 divide-y')}>
             {messages.map((m) => {
               const isStreamTarget = streaming?.mode === 'swipe' && m.id === last?.id;
               const isUser = m.role === 'user';
@@ -238,6 +238,7 @@ export function ChatView({
                   streaming={isStreamTarget}
                   isLast={m.id === last?.id}
                   busy={streaming !== null}
+                  bubble={settings.messageBubbles}
                   onSwipe={safe((dir: -1 | 1) => swipe(m, dir))}
                   onRegenerate={safe(() => runGeneration('swipe'))}
                   onEdit={safe((content: string) => edit(m, content))}
@@ -268,6 +269,7 @@ export function ChatView({
                 streaming
                 isLast
                 busy
+                bubble={settings.messageBubbles}
                 onOpenProfile={() => setProfile('character')}
               />
             )}

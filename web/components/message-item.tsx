@@ -34,6 +34,8 @@ interface Props {
   onDelete?: () => void;
   onOpenProfile?: () => void;
   onOpenDetails?: () => void;
+  /** Draw a panel behind the message. Off leaves plain text on the page. */
+  bubble?: boolean;
   /** Thinking as it streams in, for the reply being written right now. */
   reasoning?: string;
   /** Size of the saved thinking, so the toggle can appear without fetching it. */
@@ -239,8 +241,14 @@ export const MessageItem = memo(function MessageItem(p: Props) {
             </div>
           </div>
         ) : (
-          <div className={cn(isUser && 'mt-1 flex justify-end')}>
-            <div className={cn(isUser && 'bg-muted/60 max-w-[92%] rounded-xl px-4 py-3')}>
+          <div className={cn('mt-1', isUser && 'flex justify-end')}>
+            <div
+              className={cn(
+                p.bubble && 'bg-muted/60 rounded-xl px-4 py-3',
+                // The character's prose fills the column; your line hugs its own text.
+                p.bubble && isUser && 'max-w-[92%]',
+              )}
+            >
               {p.streaming && !p.text ? (
                 <span className="rp-typing text-muted-foreground inline-flex gap-1 py-2" aria-label="Generating">
                   <i />

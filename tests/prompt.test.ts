@@ -18,6 +18,7 @@ const settings = (over: Partial<Settings> = {}): Settings => ({
   thinkingLevel: 'default',
   promptFormat: 'none',
   memoryTokens: 800,
+  messageBubbles: true,
   chatBackground: '',
   chatBackgroundDim: 60,
   ...over,

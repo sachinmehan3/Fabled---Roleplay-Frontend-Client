@@ -180,6 +180,7 @@ export interface Settings {
   thinkingLevel: ThinkingLevel;
   promptFormat: PromptFormat;
   memoryTokens: number;
+  messageBubbles: boolean;
   chatBackground: string;
   chatBackgroundDim: number;
   hasApiKey: boolean;

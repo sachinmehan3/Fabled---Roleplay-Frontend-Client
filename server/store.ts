@@ -120,6 +120,8 @@ export interface Settings {
   promptFormat: PromptFormat;
   /** Context tokens set aside for chat memory. 0 turns memory off entirely. */
   memoryTokens: number;
+  /** Draw a panel behind every message, rather than plain text on the page. */
+  messageBubbles: boolean;
   chatBackground: string; // file name in data/avatars
   chatBackgroundDim: number; // 0-100, how far it fades into the page colour
 }
@@ -139,6 +141,7 @@ export const DEFAULT_SETTINGS: Settings = {
   thinkingLevel: 'default',
   promptFormat: 'none',
   memoryTokens: 800,
+  messageBubbles: true,
   chatBackground: '',
   chatBackgroundDim: 60,
 };
