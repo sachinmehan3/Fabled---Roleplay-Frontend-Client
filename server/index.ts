@@ -531,29 +531,24 @@ route('DELETE', '/api/messages/:id', ({ params }) => {
 // mode "swipe": add an alternative version of the last assistant reply
 route('POST', '/api/chats/:id/generate', async ({ params, json, res }) => {
   const chat = requireChat(id(params.id));
-  const { mode = 'new', messageId } = await json<{ mode?: 'new' | 'swipe'; messageId?: number }>().catch(
-    () => ({}) as { mode?: 'new' | 'swipe'; messageId?: number },
-  );
+  type GenerateBody = { mode?: 'new' | 'swipe' | 'redo'; messageId?: number };
+  const { mode = 'new', messageId } = await json<GenerateBody>().catch(() => ({}) as GenerateBody);
   const character = requireCharacter(chat.character_id);
   const settings = getSettings();
   if (!settings.model) throw new HttpError(400, 'No model selected — open Settings first.');
 
   let all = listMessages(chat.id);
   let target: MessageRow | undefined;
-  if (mode === 'swipe') {
-    if (typeof messageId === 'number') {
-      // A reply from earlier in the chat: answer again from what came before it,
-      // and leave everything after it alone.
-      const at = all.findIndex((m) => m.id === messageId);
-      if (at === -1) throw new HttpError(404, 'That message is not in this chat');
-      target = all[at];
-      if (target.role !== 'assistant') throw new HttpError(400, 'Only a reply can be regenerated');
-      all = all.slice(0, at);
-    } else {
-      target = all.at(-1);
-      if (!target || target.role !== 'assistant') throw new HttpError(400, 'Last message is not a reply');
-      all = all.slice(0, -1);
-    }
+  // Both modes answer again from what came before the target reply, leaving
+  // anything after it alone. 'swipe' keeps the old text beside the new one;
+  // 'redo' replaces it, versions and all.
+  const replace = mode === 'redo';
+  if (mode === 'swipe' || mode === 'redo') {
+    const at = typeof messageId === 'number' ? all.findIndex((m) => m.id === messageId) : all.length - 1;
+    if (at < 0) throw new HttpError(404, 'That message is not in this chat');
+    target = all[at];
+    if (!target || target.role !== 'assistant') throw new HttpError(400, 'Only a reply can be regenerated');
+    all = all.slice(0, at);
   }
 
   const history = all.map((m) => ({ role: m.role, content: m.swipes[m.swipe_index] ?? '' }));
@@ -650,9 +645,14 @@ route('POST', '/api/chats/:id/generate', async ({ params, json, res }) => {
   let saved: MessageRow | undefined;
   if (text.trim()) {
     if (target) {
-      target.swipes.push(text);
-      target.meta.push(meta);
-      saveSwipes(target.id, target.swipes, target.meta, target.swipes.length - 1);
+      if (replace) {
+        // Only now that the new text exists, so a failure leaves the old one in place.
+        saveSwipes(target.id, [text], [meta], 0);
+      } else {
+        target.swipes.push(text);
+        target.meta.push(meta);
+        saveSwipes(target.id, target.swipes, target.meta, target.swipes.length - 1);
+      }
       saved = getMessage(target.id);
     } else {
       saved = insertMessage(chat.id, 'assistant', [text], [meta]);

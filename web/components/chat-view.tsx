@@ -31,7 +31,7 @@ interface Props {
   onEditUser: () => void;
 }
 
-type Streaming = { mode: 'new' | 'swipe'; text: string; reasoning: string; targetId?: number } | null;
+type Streaming = { mode: 'new' | 'swipe' | 'redo'; text: string; reasoning: string; targetId?: number } | null;
 type Details = { messageId: number; swipeIndex: number; swipeCount: number; meta: GenerationMeta | null };
 
 const applyMacros = (text: string, char: string, user: string) =>
@@ -92,7 +92,7 @@ export function ChatView({
     if (el && stickToBottom.current) el.scrollTop = el.scrollHeight;
   }, [messages, streaming]);
 
-  const runGeneration = async (mode: 'new' | 'swipe', targetId?: number) => {
+  const runGeneration = async (mode: 'new' | 'swipe' | 'redo', targetId?: number) => {
     const controller = new AbortController();
     abortRef.current = controller;
     // Rewriting something further up should not drag the view to the bottom.
@@ -142,8 +142,8 @@ export function ChatView({
     const next = msg.swipe_index + dir;
     if (next < 0) return;
     if (next >= msg.swipes.length) {
-      // Past the last swipe on the latest reply → generate a new alternative.
-      if (msg.id === messages.at(-1)?.id && msg.role === 'assistant') await runGeneration('swipe');
+      // Past the last version of any reply: ask for another beside it.
+      if (msg.role === 'assistant') await runGeneration('swipe', msg.id);
       return;
     }
     const updated = await api.updateMessage(msg.id, { swipe_index: next });
@@ -160,16 +160,13 @@ export function ChatView({
    * beside it. With no reply to replace - it was deleted, or never came - this
    * simply answers the message that is waiting.
    */
-  const regenerate = async () => {
+  const regenerate = async (msg?: Message) => {
     if (streaming) return;
-    const target = messages.at(-1);
+    const target = msg ?? messages.at(-1);
     if (!target) return;
-    if (target.role === 'assistant') {
-      if (messages.length < 2) return; // the opening greeting has nothing to answer
-      await api.deleteMessage(target.id);
-      setMessages((ms) => ms.slice(0, -1));
-    }
-    await runGeneration('new');
+    // A reply is rewritten in place; a message of yours is simply answered.
+    if (target.role === 'assistant') await runGeneration('redo', target.id);
+    else if (target.id === messages.at(-1)?.id) await runGeneration('new');
   };
 
   /**
@@ -223,7 +220,7 @@ export function ChatView({
 
   const last = messages.at(-1);
   // Either there is a reply to replace, or a message of yours waiting for one.
-  const canRegenerate = !streaming && (last?.role === 'user' || messages.length > 1);
+  const canRegenerate = !streaming && messages.length > 0;
 
   // Ctrl/Cmd + Enter regenerates the last reply. The composer handles its own
   // keydown; this covers the rest of the page without stealing the shortcut
@@ -282,7 +279,8 @@ export function ChatView({
           )}
           <div className={cn(settings.messageBubbles ? 'space-y-1' : 'divide-border/60 divide-y')}>
             {messages.map((m) => {
-              const isStreamTarget = streaming?.mode === 'swipe' && m.id === (streaming.targetId ?? last?.id);
+              const isStreamTarget =
+                streaming?.mode !== 'new' && !!streaming && m.id === (streaming.targetId ?? last?.id);
               const isUser = m.role === 'user';
               return (
                 <MessageItem
@@ -299,9 +297,7 @@ export function ChatView({
                   selected={selection?.includes(m.id)}
                   onSelect={() => selectFrom(m)}
                   onSwipe={safe((dir: -1 | 1) => swipe(m, dir))}
-                  // The last reply is replaced; an earlier one gains a version
-                  // beside it, so whatever came after still makes sense.
-                  onRegenerate={safe(() => (m.id === last?.id ? regenerate() : runGeneration('swipe', m.id)))}
+                  onRegenerate={safe(() => regenerate(m))}
                   onEdit={safe((content: string) => edit(m, content))}
                   onDelete={safe(() => remove(m))}
                   reasoning={isStreamTarget ? streaming.reasoning : undefined}

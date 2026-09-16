@@ -159,7 +159,7 @@ web/
 | POST | `/api/lorebooks/import` | raw JSON: ours, a SillyTavern export, or a V2 `character_book` |
 | GET/PUT/DELETE | `/api/chats/:id/memory` | read, edit or forget what a chat remembers |
 | POST | `/api/chats/:id/memory/fold` | summarise now instead of waiting for an overflow |
-| POST | `/api/chats/:id/generate` | `{mode: "new" \| "swipe", messageId?}` → SSE `{delta}` `{reasoning}` … `{done, message}` |
+| POST | `/api/chats/:id/generate` | `{mode: "new" \| "swipe" \| "redo", messageId?}` → SSE `{delta}` `{reasoning}` … `{done, message}` |
 
 ## Next steps
 

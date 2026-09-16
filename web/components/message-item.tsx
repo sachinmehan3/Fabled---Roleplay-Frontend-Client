@@ -135,7 +135,8 @@ export const MessageItem = memo(function MessageItem(p: Props) {
 
   const m = p.message;
   const isUser = m?.role === 'user';
-  const canSwipe = !!m && m.role === 'assistant' && (m.swipes.length > 1 || p.isLast);
+  // Every reply can be asked for another version, so every reply shows the count.
+  const canSwipe = !!m && m.role === 'assistant';
   const atLastSwipe = !!m && m.swipe_index >= m.swipes.length - 1;
   const total = m ? (p.streaming ? m.swipes.length + 1 : m.swipes.length) : 0;
   const current = m ? (p.streaming ? total : m.swipe_index + 1) : 0;
@@ -218,10 +219,7 @@ export const MessageItem = memo(function MessageItem(p: Props) {
                 </IconAction>
               )}
               {m.role === 'assistant' && (
-                <IconAction
-                  label={p.isLast ? 'Regenerate' : 'Answer again, keeping this version'}
-                  onClick={p.onRegenerate}
-                >
+                <IconAction label="Regenerate" onClick={p.onRegenerate}>
                   <RefreshCw />
                 </IconAction>
               )}
@@ -309,7 +307,7 @@ export const MessageItem = memo(function MessageItem(p: Props) {
                   variant="ghost"
                   size="icon-xs"
                   aria-label={atLastSwipe ? 'Generate another version' : 'Next version'}
-                  disabled={p.busy || (atLastSwipe && !p.isLast)}
+                  disabled={p.busy}
                   onClick={() => p.onSwipe?.(1)}
                 >
                   <ChevronRight />
