@@ -71,7 +71,7 @@ function SectionLabel({ children, action }: { children: ReactNode; action?: Reac
 export function AppSidebar(p: Props) {
   const { theme, setTheme } = useTheme();
   const themeIcon = {
-    fabled: <img src="/fabled-icon-transparent.svg" alt="" className="size-4 shrink-0" />,
+    default: <img src="/fabled-icon-transparent.svg" alt="" className="size-4 shrink-0" />,
     dark: <MoonStar />,
     light: <Sun />,
   };

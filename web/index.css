@@ -46,9 +46,9 @@
 
 /* ===== theme tokens =====
    Three themes, picked from the sidebar footer:
-     Light   :root            parchment & ink
-     Fabled  .dark            ink & antique bronze (the default)
-     Dark    .dark.theme-dark the original zinc & violet
+     Light    :root            parchment & ink
+     Default  .dark            ink & antique bronze
+     Dark     .dark.theme-dark neutral zinc & steel blue
    Every dark theme keeps the `dark` class so Tailwind's dark: utilities apply. */
 :root {
   --radius: 0.625rem;

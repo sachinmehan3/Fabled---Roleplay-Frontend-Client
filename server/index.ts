@@ -30,6 +30,7 @@ import {
 } from './store.ts';
 import { foldMemory } from './memory.ts';
 import './migrate-sqlite.ts'; // one-time import of an older data/rp.db, if one is there
+import { seedStarterCharacter } from './seed.ts';
 import { isPng, normalizeCard, parseCardFile, type CharacterCard } from './cards.ts';
 import { buildPrompt, estimateTokens } from './prompt.ts';
 import { listModels, streamChat, testChat, type StreamReport } from './llm.ts';
@@ -561,6 +562,8 @@ const server = http.createServer(async (req, res) => {
   if (method === 'GET' && serveStatic(url.pathname, res)) return;
   send(res, 404, { error: 'Not found (run `npm run dev` and open the Vite URL)' });
 });
+
+seedStarterCharacter(); // runs after any migration above has had its turn
 
 server.listen(PORT, HOST, () => {
   console.log(`RP server listening on http://${HOST}:${PORT}`);

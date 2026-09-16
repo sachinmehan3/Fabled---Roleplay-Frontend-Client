@@ -117,6 +117,19 @@ test('a truncated PNG stops cleanly instead of running off the end', () => {
   assert.doesNotThrow(() => readPngText(cut));
 });
 
+test('the starter character card is valid', (t) => {
+  const starter = path.join(process.cwd(), 'samples', 'sable.card.json');
+  if (!fs.existsSync(starter)) return t.skip('samples/sable.card.json is not present');
+  const { card, png } = parseCardFile(fs.readFileSync(starter));
+
+  assert.equal(png, false);
+  assert.equal(card.name, 'Sable Emberwright');
+  assert.ok(card.first_mes.length > 0, 'she needs something to open with');
+  assert.equal(card.alternate_greetings.length, 2);
+  assert.ok(card.mes_example.includes('<START>'));
+  assert.ok(card.tags.length > 0);
+});
+
 test('the bundled sample card still parses', (t) => {
   const sample = path.join(process.cwd(), 'samples', 'lyra.card.png');
   if (!fs.existsSync(sample)) return t.skip('samples/lyra.card.png is not present');

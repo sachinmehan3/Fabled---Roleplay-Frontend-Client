@@ -47,7 +47,7 @@ npm run dev          # server on :3001 + Vite on :5173
 Open http://localhost:5173, then:
 
 1. Pick a provider in **Settings**, add your key if the provider needs one, then click **Fetch models** and choose a model.
-2. Click **New character** to write a card yourself, or the upload button beside it to import one (`.png` or `.json`). A sample card is in `samples/lyra.card.png`.
+2. A starter character, Sable Emberwright, is already waiting on your first run. Add your own with **New character**, or the upload button beside it to import a card (`.png` or `.json`). Samples are in `samples/`.
 3. Fill in your own name and persona under **Settings -> User**, then start chatting.
 
 Production build (one process serves both the UI and the API):
@@ -101,6 +101,7 @@ untrusted card or model text and `dangerouslySetInnerHTML`.
 tests/              node:test suites for the logic above
 server/
   index.ts          routes + SSE generation endpoint
+  seed.ts           adds the starter character on a first run
   memory.ts         folds forgotten messages into a rolling summary
   store.ts          JSON/JSONL storage, settings, generation records
   migrate-sqlite.ts one-time import of an older data/rp.db

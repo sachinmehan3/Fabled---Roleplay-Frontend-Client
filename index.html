@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="dark theme-fabled">
+<html lang="en" class="dark theme-default">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -9,10 +9,11 @@
       // Apply the saved theme before the first paint.
       try {
         var t = localStorage.getItem('rp-theme');
-        if (t !== 'light' && t !== 'dark' && t !== 'fabled') t = 'fabled';
+        if (t === 'fabled') t = 'default'; // what this theme used to be called
+        if (t !== 'light' && t !== 'dark' && t !== 'default') t = 'default';
         var c = document.documentElement.classList;
         c.toggle('dark', t !== 'light');
-        c.toggle('theme-fabled', t === 'fabled');
+        c.toggle('theme-default', t === 'default');
         c.toggle('theme-dark', t === 'dark');
         c.toggle('theme-light', t === 'light');
         document.documentElement.style.colorScheme = t === 'light' ? 'light' : 'dark';
