@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowUp, Brain, Ellipsis, PanelLeft, Square, Trash2 } from 'lucide-react';
+import { ArrowUp, Brain, Ellipsis, PanelLeft, Square, Trash2, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, generate } from '@/api';
 import type { Character, GenerationMeta, Message, Settings } from '@/types';
@@ -330,17 +330,18 @@ export function ChatView({
                 />
               );
             })}
-            {streaming?.mode === 'new' && (
+            {streaming && !streaming.targetId && (
               <MessageItem
-                name={character.name}
-                avatar={character.avatar}
+                role={streaming.mode === 'impersonate' ? 'user' : 'assistant'}
+                name={streaming.mode === 'impersonate' ? settings.userName : character.name}
+                avatar={streaming.mode === 'impersonate' ? userAvatar : character.avatar}
                 text={streaming.text}
                 reasoning={streaming.reasoning}
                 streaming
                 isLast
                 busy
                 bubble={settings.messageBubbles}
-                onOpenProfile={() => setProfile('character')}
+                onOpenProfile={() => setProfile(streaming.mode === 'impersonate' ? 'user' : 'character')}
               />
             )}
           </div>
@@ -383,13 +384,21 @@ export function ChatView({
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                className="text-muted-foreground shrink-0"
+                // A ring here reads as a box inside a box. Focus shows as a fill instead.
+                className="text-muted-foreground data-[state=open]:bg-accent focus-visible:bg-accent shrink-0 focus-visible:ring-0"
                 aria-label="Chat tools"
               >
                 <Ellipsis />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent side="top" align="start" className="w-48">
+              <DropdownMenuItem
+                onSelect={() => safe(() => runGeneration('impersonate'))()}
+                disabled={!!streaming || !messages.length}
+              >
+                <Wand2 />
+                Impersonate
+              </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setMemoryOpen(true)}>
                 <Brain />
                 Chat memory

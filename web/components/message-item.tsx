@@ -24,6 +24,8 @@ import { CharacterAvatar } from '@/components/character-avatar';
 
 interface Props {
   message?: Message; // undefined for the not-yet-saved streaming reply
+  /** Whose message it is while it is still being written. */
+  role?: 'user' | 'assistant';
   name: string;
   avatar: string | null;
   text: string;
@@ -138,7 +140,7 @@ export const MessageItem = memo(function MessageItem(p: Props) {
   const html = useMemo(() => renderMarkdown(p.text), [p.text]);
 
   const m = p.message;
-  const isUser = m?.role === 'user';
+  const isUser = (m?.role ?? p.role) === 'user';
   // Every reply can be asked for another version, so every reply shows the count.
   const canSwipe = !!m && m.role === 'assistant';
   const atLastSwipe = !!m && m.swipe_index >= m.swipes.length - 1;

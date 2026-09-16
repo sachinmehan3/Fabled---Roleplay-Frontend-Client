@@ -595,8 +595,11 @@ route('POST', '/api/chats/:id/generate', async ({ params, json, res }) => {
   // leaving anything after it alone. 'swipe' keeps the old text beside the new
   // one; 'redo' and 'impersonate' replace it, versions and all.
   const impersonate = mode === 'impersonate';
-  const replace = mode === 'redo' || impersonate;
-  if (mode !== 'new') {
+  // Impersonating with nothing named writes your next message; naming one of
+  // your messages rewrites that instead.
+  const rewrites = mode !== 'new' && !(impersonate && messageId === undefined);
+  const replace = mode === 'redo' || (impersonate && rewrites);
+  if (rewrites) {
     const at = typeof messageId === 'number' ? all.findIndex((m) => m.id === messageId) : all.length - 1;
     if (at < 0) throw new HttpError(404, 'That message is not in this chat');
     target = all[at];
@@ -723,7 +726,7 @@ route('POST', '/api/chats/:id/generate', async ({ params, json, res }) => {
       }
       saved = getMessage(target.id);
     } else {
-      saved = insertMessage(chat.id, 'assistant', [text], [meta]);
+      saved = insertMessage(chat.id, impersonate ? 'user' : 'assistant', [text], [meta]);
     }
   }
 
