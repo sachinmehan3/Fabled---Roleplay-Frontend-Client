@@ -286,8 +286,10 @@ export function ChatView({
           )}
           <div className={cn(settings.messageBubbles ? 'space-y-1' : 'divide-border/60 divide-y')}>
             {messages.map((m) => {
-              const isStreamTarget =
-                streaming?.mode !== 'new' && !!streaming && m.id === (streaming.targetId ?? last?.id);
+              // Only a message that was actually named is being rewritten. The
+              // old fallback to the last message made impersonation, which names
+              // nothing, look like it was overwriting the reply above it.
+              const isStreamTarget = !!streaming?.targetId && m.id === streaming.targetId;
               const isUser = m.role === 'user';
               return (
                 <MessageItem
