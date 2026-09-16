@@ -197,7 +197,7 @@ export function ChatView({
         <CharacterAvatar
           name={character.name}
           file={character.avatar}
-          className="size-8"
+          className="size-10"
           onClick={() => setProfile('character')}
           label={`View ${character.name}'s card`}
         />

@@ -26,7 +26,7 @@ export function AvatarPicker({ name, file, pending, cleared, onChange, hint }: P
 
   return (
     <div className="flex items-center gap-4">
-      <CharacterAvatar name={name} file={shown} src={preview} className="size-20" fallbackClassName="text-xl" />
+      <CharacterAvatar name={name} file={shown} src={preview} className="size-20 rounded-xl" fallbackClassName="text-xl" />
       <div className="grid gap-2">
         <div className="flex gap-2">
           <Button type="button" variant="outline" size="sm" onClick={() => input.current?.click()}>
