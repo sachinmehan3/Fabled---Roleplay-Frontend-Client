@@ -20,6 +20,7 @@ A minimal, hackable roleplay chat frontend in the spirit of SillyTavern.
 - **Generation details:** every reply keeps a record - the prompt exactly as sent, how much of the history fit, token counts, timings and why the model stopped
 - **Safe markdown:** raw HTML from cards or models is escaped, and only http(s)/mailto links are allowed. `"dialogue"` is highlighted and `*actions*` are italicised
 - **Private API key:** it's stored server-side and never sent to the browser
+- **Signed in by password:** every API route, avatars included, needs a session; the first run is claimed with a one-time code from the server console
 - **Plain-file storage:** JSON and JSONL you can read, diff and edit by hand - no database
 
 ## Stack
@@ -50,9 +51,10 @@ npm run dev          # server on :3001 + Vite on :5173
 
 Open http://localhost:5173, then:
 
-1. Pick a provider in **Settings**, add your key if the provider needs one, then click **Fetch models** and choose a model.
-2. A starter character, Sable Emberwright, is already waiting on your first run. Add your own with **New character**, or the upload button beside it to import a card (`.png` or `.json`). Samples are in `samples/`.
-3. Fill in your own name and persona under **Settings -> User**, then start chatting.
+1. Enter the setup code the server printed, and choose a password.
+2. Pick a provider in **Settings**, add your key if the provider needs one, then click **Fetch models** and choose a model.
+3. A starter character, Sable Emberwright, is already waiting on your first run. Add your own with **New character**, or the upload button beside it to import a card (`.png` or `.json`). Samples are in `samples/`.
+4. Fill in your own name and persona under **Settings -> User**, then start chatting.
 
 Production build (one process serves both the UI and the API):
 
@@ -61,7 +63,43 @@ npm run build
 npm start            # http://localhost:3001
 ```
 
-The server only listens on `127.0.0.1` by default, because it holds your API key. Set `HOST=0.0.0.0` only on a network you trust. Other environment variables: `PORT` and `RP_DATA_DIR`.
+The server only listens on `127.0.0.1` by default, because it holds your API key. Other environment variables: `HOST`, `PORT` and `RP_DATA_DIR`.
+
+## Signing in
+
+On the first run the server prints a setup code:
+
+```
+----------------------------------------------------
+  No password is set yet.
+  Open Fabled and enter this setup code:
+
+      2F63195AF51A
+
+  It works once, and changes if the server restarts.
+----------------------------------------------------
+```
+
+Open Fabled, enter that code and choose a password. The code is there so that
+whoever reaches a freshly started server first cannot claim it; only someone who
+can see the console can.
+
+How it is protected:
+
+- The password is stored as a **scrypt** hash in `data/auth.json` and checked in constant time.
+- Sessions are random 256-bit tokens in an `HttpOnly; SameSite=Strict` cookie that lasts 30 days. The server keeps only a SHA-256 of each one in `data/sessions.json`, so a copy of the data folder cannot be used to sign in.
+- **Every `/api` route requires a session** except status, sign-in and setup. The check sits in front of the router, so a route added later cannot forget it.
+- Five failed sign-ins lock that address out for fifteen minutes.
+- Writes from another site are refused by an `Origin` check, behind the SameSite cookie. Behind a reverse proxy the public host is read from `X-Forwarded-Host`.
+- Responses carry `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` and `Cross-Origin-Opener-Policy`.
+
+Change the password in **Settings -> User**; doing so signs out every other device. Sign out from the sidebar.
+
+**Forgot it?** Stop the server, delete `data/auth.json` and `data/sessions.json`, and start it again. You will get a new setup code. Your characters and chats are untouched.
+
+To reach Fabled from your other devices, run it behind [Tailscale](https://tailscale.com) with `HOST=0.0.0.0` (or your tailnet address) and open it at that machine's tailnet name. Only devices on your tailnet can reach it, and the password guards it on top of that.
+
+Not covered: there is one account, not several, and plain HTTP is not encrypted between your browser and the server - over Tailscale that link is already encrypted, but on any other network put HTTPS in front before exposing it.
 
 ## Your data
 
@@ -106,7 +144,8 @@ untrusted card or model text and `dangerouslySetInnerHTML`.
 ```
 tests/              node:test suites for the logic above
 server/
-  index.ts          routes + SSE generation endpoint
+  index.ts          routes, the sign-in gate, SSE generation endpoint
+  auth.ts           passwords, sessions, setup code, rate limiting
   seed.ts           adds the starter character on a first run
   lorebook.ts       World Info: matching, recursion, groups, timed effects, budget
   lorebook-import.ts  reads a SillyTavern World Info export
@@ -140,6 +179,11 @@ web/
 
 | Method | Path | |
 |---|---|---|
+| GET | `/api/auth/status` | public: whether a password exists and you are signed in |
+| POST | `/api/auth/setup` | public: `{code, password}` on the first run |
+| POST | `/api/auth/login` | public: `{password}` |
+| POST | `/api/auth/logout` | |
+| POST | `/api/auth/password` | `{current, next}`; signs out every other device |
 | GET/PUT | `/api/settings` | the key is write-only |
 | GET | `/api/models` | proxied from the provider |
 | GET | `/api/characters` | |

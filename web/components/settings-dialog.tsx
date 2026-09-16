@@ -194,6 +194,9 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
     ok: false,
   });
   const [describing, setDescribing] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
 
   // Reset the form each time the dialog opens (not when settings change while it's open).
   useEffect(() => {
@@ -310,6 +313,20 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
       });
     } catch (e) {
       setStatus({ kind: 'error', text: (e as Error).message });
+    }
+  };
+
+  const changePassword = async () => {
+    setChangingPassword(true);
+    try {
+      await api.changePassword(currentPassword, newPassword);
+      setCurrentPassword('');
+      setNewPassword('');
+      toast.success('Password changed. Every other device has been signed out.');
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -549,6 +566,45 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
                 {describeBlockedBecause ??
                   'Sends your picture to the model and adds how you look to the text above. It is added underneath whatever you have written, never over it.'}
               </span>
+            </div>
+
+            <div className="grid gap-3 border-t pt-5">
+              <div>
+                <Label>Password</Label>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Changing it signs out every other device, so it is also how you end a session you have lost track of.
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Input
+                  type="password"
+                  placeholder="Current password"
+                  aria-label="Current password"
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                />
+                <Input
+                  type="password"
+                  placeholder="New password"
+                  aria-label="New password"
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
+              </div>
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={changePassword}
+                  disabled={changingPassword || !currentPassword || newPassword.length < 8}
+                >
+                  {changingPassword && <LoaderCircle className="animate-spin" />}
+                  Change password
+                </Button>
+              </div>
             </div>
           </TabsContent>
 

@@ -11,6 +11,14 @@ import type {
   VisionCheck,
 } from './types.ts';
 
+/** Fired whenever the server refuses a request because the session is gone. */
+export const SIGNED_OUT = 'fabled:signed-out';
+
+/** A 401 from anywhere but the sign-in routes means the session has lapsed. */
+function noticeSignOut(status: number, url: string) {
+  if (status === 401 && !url.startsWith('/api/auth/')) window.dispatchEvent(new Event(SIGNED_OUT));
+}
+
 async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
   const isRaw = body instanceof Blob;
   const res = await fetch(url, {
@@ -19,11 +27,18 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
     body: body === undefined ? undefined : isRaw ? body : JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
+  noticeSignOut(res.status, url);
   if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`);
   return data as T;
 }
 
 export const api = {
+  authStatus: () => request<{ configured: boolean; authenticated: boolean }>('GET', '/api/auth/status'),
+  setupAuth: (code: string, password: string) => request('POST', '/api/auth/setup', { code, password }),
+  login: (password: string) => request('POST', '/api/auth/login', { password }),
+  logout: () => request('POST', '/api/auth/logout'),
+  changePassword: (current: string, next: string) => request('POST', '/api/auth/password', { current, next }),
+
   getSettings: () => request<Settings>('GET', '/api/settings'),
   saveSettings: (s: Partial<Settings> & { apiKey?: string | null }) => request<Settings>('PUT', '/api/settings', s),
   listModels: () => request<{ models: string[] }>('GET', '/api/models'),
@@ -97,6 +112,7 @@ export async function generate(
   });
   if (!res.ok || !res.body) {
     const data = await res.json().catch(() => ({}));
+    noticeSignOut(res.status, '/api/chats');
     throw new Error(data.error ?? `Generation failed (${res.status})`);
   }
 

@@ -41,6 +41,24 @@ import {
 import { foldMemory } from './memory.ts';
 import { activateLore, EMPTY_ENTRY, type Lorebook } from './lorebook.ts';
 import { importLorebook } from './lorebook-import.ts';
+import {
+  checkPassword,
+  clearedCookie,
+  consumeSetupCode,
+  createSession,
+  isConfigured,
+  issueSetupCode,
+  passwordProblem,
+  RateLimiter,
+  readCookie,
+  revokeAllSessions,
+  revokeSession,
+  SESSION_COOKIE,
+  sessionCookie,
+  setPassword,
+  setupCodeMatches,
+  validSession,
+} from './auth.ts';
 import './migrate-sqlite.ts'; // one-time import of an older data/rp.db, if one is there
 import { seedStarterCharacter } from './seed.ts';
 import { isPng, normalizeCard, parseCardFile, type CharacterCard } from './cards.ts';
@@ -107,6 +125,85 @@ const id = (s: string) => {
   if (!Number.isInteger(n)) throw new HttpError(400, 'Bad id');
   return n;
 };
+
+// ---------- signing in ----------
+
+const loginAttempts = new RateLimiter(5, 15 * 60 * 1000);
+
+/** Requests that must work before anyone has signed in. Everything else under /api needs a session. */
+const PUBLIC_ROUTES = new Set(['GET /api/auth/status', 'POST /api/auth/login', 'POST /api/auth/setup']);
+
+const clientAddress = (req: http.IncomingMessage) => req.socket.remoteAddress ?? 'unknown';
+const tokenOf = (req: http.IncomingMessage) => readCookie(req.headers.cookie, SESSION_COOKIE);
+const isHttps = (req: http.IncomingMessage) =>
+  Boolean((req.socket as { encrypted?: boolean }).encrypted) || req.headers['x-forwarded-proto'] === 'https';
+
+function refuseIfGuessing(req: http.IncomingMessage) {
+  const who = clientAddress(req);
+  if (loginAttempts.blocked(who)) {
+    throw new HttpError(429, `Too many attempts. Try again in ${loginAttempts.retryAfter(who)} seconds.`);
+  }
+}
+
+function signIn(req: http.IncomingMessage, res: http.ServerResponse) {
+  loginAttempts.forgive(clientAddress(req));
+  res.setHeader('Set-Cookie', sessionCookie(createSession(), isHttps(req)));
+}
+
+route('GET', '/api/auth/status', ({ req }) => ({
+  configured: isConfigured(),
+  authenticated: isConfigured() && validSession(tokenOf(req)),
+}));
+
+// First run: claim the server with the code from its console.
+route('POST', '/api/auth/setup', async ({ req, res, json }) => {
+  if (isConfigured()) throw new HttpError(409, 'A password is already set. Sign in instead.');
+  refuseIfGuessing(req);
+  const { code, password } = await json<{ code?: string; password?: string }>();
+  if (!setupCodeMatches(code)) {
+    loginAttempts.fail(clientAddress(req));
+    throw new HttpError(403, 'That setup code is not right. It is printed in the window running the server.');
+  }
+  const problem = passwordProblem(password);
+  if (problem) throw new HttpError(400, problem);
+  await setPassword(password as string);
+  consumeSetupCode();
+  signIn(req, res);
+  return { ok: true };
+});
+
+route('POST', '/api/auth/login', async ({ req, res, json }) => {
+  if (!isConfigured()) throw new HttpError(409, 'No password has been set yet.');
+  refuseIfGuessing(req);
+  const { password } = await json<{ password?: string }>();
+  if (!(await checkPassword(password))) {
+    loginAttempts.fail(clientAddress(req));
+    throw new HttpError(401, 'That password is not right.');
+  }
+  signIn(req, res);
+  return { ok: true };
+});
+
+route('POST', '/api/auth/logout', ({ req, res }) => {
+  revokeSession(tokenOf(req));
+  res.setHeader('Set-Cookie', clearedCookie(isHttps(req)));
+  return { ok: true };
+});
+
+// Changing the password signs out every other device, which is usually the point.
+route('POST', '/api/auth/password', async ({ req, json }) => {
+  refuseIfGuessing(req);
+  const { current, next } = await json<{ current?: string; next?: string }>();
+  if (!(await checkPassword(current))) {
+    loginAttempts.fail(clientAddress(req));
+    throw new HttpError(401, 'Your current password is not right.');
+  }
+  const problem = passwordProblem(next);
+  if (problem) throw new HttpError(400, problem);
+  await setPassword(next as string);
+  revokeAllSessions(tokenOf(req));
+  return { ok: true };
+});
 
 // ---------- settings ----------
 
@@ -771,9 +868,50 @@ function serveStatic(urlPath: string, res: http.ServerResponse): boolean {
 
 // ---------- server ----------
 
+/** Headers that cost nothing and close off whole classes of trouble. */
+function harden(res: http.ServerResponse) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+}
+
+/**
+ * A browser always says where a request came from. If it came from another
+ * site, it is refused before any route sees it - a second line behind the
+ * SameSite cookie.
+ */
+function crossSite(req: http.IncomingMessage): boolean {
+  const origin = req.headers.origin;
+  if (!origin) return false; // not a browser, or a same-origin GET
+  let from: string;
+  try {
+    from = new URL(origin).host;
+  } catch {
+    return true;
+  }
+  // Behind a reverse proxy the public host arrives as X-Forwarded-Host. A page
+  // on another site cannot set that header on a request without a preflight
+  // this server never approves, so honouring it does not reopen the hole.
+  const forwarded = String(req.headers['x-forwarded-host'] ?? '').split(',')[0].trim();
+  return from !== req.headers.host && from !== forwarded;
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://localhost');
   const method = req.method ?? 'GET';
+  harden(res);
+
+  if (url.pathname.startsWith('/api/')) {
+    if (method !== 'GET' && method !== 'HEAD' && crossSite(req)) {
+      return send(res, 403, { error: 'Cross-site request refused' });
+    }
+    // Everything under /api is private unless it is on the short public list,
+    // so a route added later cannot forget to check.
+    if (!PUBLIC_ROUTES.has(`${method} ${url.pathname}`) && !(isConfigured() && validSession(tokenOf(req)))) {
+      return send(res, 401, { error: isConfigured() ? 'Sign in to continue.' : 'Set a password first.' });
+    }
+  }
 
   for (const r of routes) {
     if (r.method !== method) continue;
@@ -816,5 +954,10 @@ const server = http.createServer(async (req, res) => {
 seedStarterCharacter(); // runs after any migration above has had its turn
 
 server.listen(PORT, HOST, () => {
-  console.log(`RP server listening on http://${HOST}:${PORT}`);
+  console.log(`Fabled is listening on http://${HOST}:${PORT}`);
+  if (!isConfigured()) {
+    const code = issueSetupCode();
+    const line = '-'.repeat(52);
+    console.log(`\n${line}\n  No password is set yet.\n  Open Fabled and enter this setup code:\n\n      ${code}\n\n  It works once, and changes if the server restarts.\n${line}\n`);
+  }
 });

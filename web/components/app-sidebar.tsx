@@ -8,6 +8,7 @@ import {
   BookOpen,
   GitBranch,
   LayoutGrid,
+  LogOut,
   PanelLeftClose,
   Pencil,
   Plus,
@@ -20,6 +21,7 @@ import {
 import type { Character, Chat } from '@/types';
 import { cn } from '@/lib/utils';
 import { THEMES, useTheme } from '@/hooks/use-theme';
+import { api, SIGNED_OUT } from '@/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
@@ -324,6 +326,19 @@ export function AppSidebar(p: Props) {
             </Button>
           </TooltipTrigger>
           <TooltipContent>Lorebooks</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Sign out"
+              onClick={() => api.logout().finally(() => window.dispatchEvent(new Event(SIGNED_OUT)))}
+            >
+              <LogOut />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Sign out</TooltipContent>
         </Tooltip>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

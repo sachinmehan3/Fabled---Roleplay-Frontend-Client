@@ -12,7 +12,9 @@ export default defineConfig({
     port: 5173,
     proxy: {
       // Forward API calls to the Node server. SSE streams pass through unbuffered.
-      '/api': 'http://127.0.0.1:3001',
+      // The Host header is kept as the browser sent it: the server refuses
+      // writes whose Origin does not match, and a rewritten Host never would.
+      '/api': { target: 'http://127.0.0.1:3001', changeOrigin: false },
     },
   },
 });
