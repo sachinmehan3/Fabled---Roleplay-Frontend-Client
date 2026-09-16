@@ -83,11 +83,13 @@ export async function generate(
   chatId: number,
   mode: 'new' | 'swipe',
   { onDelta, onReasoning, signal }: StreamHandlers,
+  /** Which reply to add a version to. Defaults to the last one. */
+  messageId?: number,
 ): Promise<Message | undefined> {
   const res = await fetch(`/api/chats/${chatId}/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mode }),
+    body: JSON.stringify({ mode, messageId }),
     signal,
   });
   if (!res.ok || !res.body) {

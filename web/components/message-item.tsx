@@ -217,8 +217,11 @@ export const MessageItem = memo(function MessageItem(p: Props) {
                   <Activity />
                 </IconAction>
               )}
-              {p.isLast && m.role === 'assistant' && (
-                <IconAction label="Regenerate" onClick={p.onRegenerate}>
+              {m.role === 'assistant' && (
+                <IconAction
+                  label={p.isLast ? 'Regenerate' : 'Answer again, keeping this version'}
+                  onClick={p.onRegenerate}
+                >
                   <RefreshCw />
                 </IconAction>
               )}

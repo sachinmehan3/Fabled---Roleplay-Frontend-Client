@@ -531,7 +531,9 @@ route('DELETE', '/api/messages/:id', ({ params }) => {
 // mode "swipe": add an alternative version of the last assistant reply
 route('POST', '/api/chats/:id/generate', async ({ params, json, res }) => {
   const chat = requireChat(id(params.id));
-  const { mode = 'new' } = await json<{ mode?: 'new' | 'swipe' }>().catch(() => ({}) as { mode?: 'new' | 'swipe' });
+  const { mode = 'new', messageId } = await json<{ mode?: 'new' | 'swipe'; messageId?: number }>().catch(
+    () => ({}) as { mode?: 'new' | 'swipe'; messageId?: number },
+  );
   const character = requireCharacter(chat.character_id);
   const settings = getSettings();
   if (!settings.model) throw new HttpError(400, 'No model selected — open Settings first.');
@@ -539,9 +541,19 @@ route('POST', '/api/chats/:id/generate', async ({ params, json, res }) => {
   let all = listMessages(chat.id);
   let target: MessageRow | undefined;
   if (mode === 'swipe') {
-    target = all.at(-1);
-    if (!target || target.role !== 'assistant') throw new HttpError(400, 'Last message is not a reply');
-    all = all.slice(0, -1);
+    if (typeof messageId === 'number') {
+      // A reply from earlier in the chat: answer again from what came before it,
+      // and leave everything after it alone.
+      const at = all.findIndex((m) => m.id === messageId);
+      if (at === -1) throw new HttpError(404, 'That message is not in this chat');
+      target = all[at];
+      if (target.role !== 'assistant') throw new HttpError(400, 'Only a reply can be regenerated');
+      all = all.slice(0, at);
+    } else {
+      target = all.at(-1);
+      if (!target || target.role !== 'assistant') throw new HttpError(400, 'Last message is not a reply');
+      all = all.slice(0, -1);
+    }
   }
 
   const history = all.map((m) => ({ role: m.role, content: m.swipes[m.swipe_index] ?? '' }));

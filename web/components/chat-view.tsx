@@ -31,7 +31,7 @@ interface Props {
   onEditUser: () => void;
 }
 
-type Streaming = { mode: 'new' | 'swipe'; text: string; reasoning: string } | null;
+type Streaming = { mode: 'new' | 'swipe'; text: string; reasoning: string; targetId?: number } | null;
 type Details = { messageId: number; swipeIndex: number; swipeCount: number; meta: GenerationMeta | null };
 
 const applyMacros = (text: string, char: string, user: string) =>
@@ -92,17 +92,23 @@ export function ChatView({
     if (el && stickToBottom.current) el.scrollTop = el.scrollHeight;
   }, [messages, streaming]);
 
-  const runGeneration = async (mode: 'new' | 'swipe') => {
+  const runGeneration = async (mode: 'new' | 'swipe', targetId?: number) => {
     const controller = new AbortController();
     abortRef.current = controller;
-    stickToBottom.current = true;
-    setStreaming({ mode, text: '', reasoning: '' });
+    // Rewriting something further up should not drag the view to the bottom.
+    if (!targetId) stickToBottom.current = true;
+    setStreaming({ mode, text: '', reasoning: '', targetId });
     try {
-      await generate(chatId, mode, {
-        signal: controller.signal,
-        onDelta: (d) => setStreaming((s) => (s ? { ...s, text: s.text + d } : s)),
-        onReasoning: (d) => setStreaming((s) => (s ? { ...s, reasoning: s.reasoning + d } : s)),
-      });
+      await generate(
+        chatId,
+        mode,
+        {
+          signal: controller.signal,
+          onDelta: (d) => setStreaming((s) => (s ? { ...s, text: s.text + d } : s)),
+          onReasoning: (d) => setStreaming((s) => (s ? { ...s, reasoning: s.reasoning + d } : s)),
+        },
+        targetId,
+      );
     } catch (e) {
       if (!controller.signal.aborted) errorToast(e);
     } finally {
@@ -276,7 +282,7 @@ export function ChatView({
           )}
           <div className={cn(settings.messageBubbles ? 'space-y-1' : 'divide-border/60 divide-y')}>
             {messages.map((m) => {
-              const isStreamTarget = streaming?.mode === 'swipe' && m.id === last?.id;
+              const isStreamTarget = streaming?.mode === 'swipe' && m.id === (streaming.targetId ?? last?.id);
               const isUser = m.role === 'user';
               return (
                 <MessageItem
@@ -293,7 +299,9 @@ export function ChatView({
                   selected={selection?.includes(m.id)}
                   onSelect={() => selectFrom(m)}
                   onSwipe={safe((dir: -1 | 1) => swipe(m, dir))}
-                  onRegenerate={safe(regenerate)}
+                  // The last reply is replaced; an earlier one gains a version
+                  // beside it, so whatever came after still makes sense.
+                  onRegenerate={safe(() => (m.id === last?.id ? regenerate() : runGeneration('swipe', m.id)))}
                   onEdit={safe((content: string) => edit(m, content))}
                   onDelete={safe(() => remove(m))}
                   reasoning={isStreamTarget ? streaming.reasoning : undefined}
