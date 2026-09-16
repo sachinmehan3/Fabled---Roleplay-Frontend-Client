@@ -234,14 +234,18 @@ export function AppSidebar(p: Props) {
                 // Chats made before naming existed carry a generated title; it
                 // is not a name anybody chose, so fall back to the date for it.
                 const named = c.title.trim() && !c.title.startsWith(`${selected.name} ${EM_DASH}`) ? c.title : '';
+                // A chat is called by its date until you call it something else,
+                // so renaming starts from the date rather than from nothing.
+                const byDate = formatDate(c.created_at);
                 const startRename = () => {
                   setRenaming(c.id);
-                  setDraft(named);
+                  setDraft(named || byDate);
                 };
                 const commit = () => {
                   if (renaming !== c.id) return;
                   setRenaming(null);
-                  if (draft.trim() !== named) p.onRenameChat(c.id, draft.trim());
+                  const next = draft.trim() === byDate ? '' : draft.trim();
+                  if (next !== named) p.onRenameChat(c.id, next);
                 };
 
                 return (
@@ -251,7 +255,7 @@ export function AppSidebar(p: Props) {
                         autoFocus
                         value={draft}
                         aria-label="Chat name"
-                        placeholder={formatDate(c.created_at)}
+                        placeholder={byDate}
                         className="bg-background h-9 text-sm"
                         onChange={(e) => setDraft(e.target.value)}
                         onBlur={commit}
@@ -278,7 +282,7 @@ export function AppSidebar(p: Props) {
                           ) : (
                             <MessageSquare className="text-muted-foreground size-4 shrink-0" />
                           )}
-                          <span className="min-w-0 flex-1 truncate">{named || formatDate(c.created_at)}</span>
+                          <span className="min-w-0 flex-1 truncate">{named || byDate}</span>
                           <span className="text-muted-foreground text-xs tabular-nums max-md:hidden md:group-hover/item:opacity-0">
                             {c.message_count ?? 0}
                           </span>

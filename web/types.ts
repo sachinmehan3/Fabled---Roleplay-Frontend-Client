@@ -18,6 +18,8 @@ export interface Character {
   name: string;
   avatar: string | null;
   card: CharacterCard;
+  /** How many chats you have with them. */
+  chats?: number;
   /** Only on import: the lorebook that came inside the card, if any. */
   lorebook?: { name: string; entries: number };
 }

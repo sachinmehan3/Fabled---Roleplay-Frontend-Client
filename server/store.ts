@@ -235,6 +235,13 @@ export function listChats(characterId: number): ChatRow[] {
   return rows.filter((c) => c.character_id === characterId).sort((a, b) => b.id - a.id);
 }
 
+/** How many chats each character has, from one read of the file. */
+export function chatCounts(): Record<number, number> {
+  const counts: Record<number, number> = {};
+  for (const chat of allChats()) counts[chat.character_id] = (counts[chat.character_id] ?? 0) + 1;
+  return counts;
+}
+
 export function getChat(id: number): ChatRow | undefined {
   return allChats().find((c) => c.id === id);
 }

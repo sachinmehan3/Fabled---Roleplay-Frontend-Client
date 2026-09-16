@@ -304,6 +304,11 @@ export function App() {
           setGalleryOpen(false);
           run(openCharacter)(id);
         }}
+        onEdit={(id) => {
+          setGalleryOpen(false);
+          openEditor(characters.find((c) => c.id === id) ?? null);
+        }}
+        onDelete={run(deleteCharacter)}
         onCreate={() => {
           setGalleryOpen(false);
           openEditor(null);

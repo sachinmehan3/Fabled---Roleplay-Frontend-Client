@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react';
-import { Plus, Search, Upload } from 'lucide-react';
+import { Pencil, Plus, Search, Trash2, Upload } from 'lucide-react';
 import type { Character } from '@/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -19,12 +19,24 @@ interface Props {
   characters: Character[];
   selectedId: number | null;
   onSelect: (id: number) => void;
+  onEdit: (id: number) => void;
+  onDelete: (id: number) => void;
   onCreate: () => void;
   onImport: () => void;
 }
 
 /** Everyone you've saved, as portraits. Names only - the card itself has the details. */
-export function CharacterGallery({ open, onOpenChange, characters, selectedId, onSelect, onCreate, onImport }: Props) {
+export function CharacterGallery({
+  open,
+  onOpenChange,
+  characters,
+  selectedId,
+  onSelect,
+  onEdit,
+  onDelete,
+  onCreate,
+  onImport,
+}: Props) {
   const [query, setQuery] = useState('');
   useEffect(() => {
     if (open) setQuery('');
@@ -74,12 +86,12 @@ export function CharacterGallery({ open, onOpenChange, characters, selectedId, o
               {filtered.map((c) => {
                 const url = avatarUrl(c.avatar);
                 return (
-                  <li key={c.id}>
+                  <li key={c.id} className="group relative">
                     <button
                       type="button"
                       onClick={() => onSelect(c.id)}
                       aria-current={c.id === selectedId || undefined}
-                      className="group w-full text-left outline-none"
+                      className="w-full text-left outline-none"
                     >
                       <div
                         className={cn(
@@ -98,11 +110,36 @@ export function CharacterGallery({ open, onOpenChange, characters, selectedId, o
                             {initials(c.name)}
                           </div>
                         )}
+                        <span className="absolute bottom-1.5 left-1.5 rounded-md bg-black/55 px-1.5 py-0.5 text-[11px] font-medium text-white backdrop-blur-sm">
+                          {c.chats ?? 0} {c.chats === 1 ? 'chat' : 'chats'}
+                        </span>
                       </div>
                       <div className="mt-2 truncate text-sm font-medium" title={c.name}>
                         {c.name}
                       </div>
                     </button>
+
+                    {/* Siblings of the tile rather than inside it: a button cannot hold buttons. */}
+                    <div className="absolute top-1.5 right-1.5 flex gap-1 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
+                      <Button
+                        variant="secondary"
+                        size="icon-xs"
+                        aria-label={`Edit ${c.name}`}
+                        onClick={() => onEdit(c.id)}
+                        className="shadow-sm"
+                      >
+                        <Pencil />
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="icon-xs"
+                        aria-label={`Delete ${c.name}`}
+                        onClick={() => onDelete(c.id)}
+                        className="hover:text-destructive shadow-sm"
+                      >
+                        <Trash2 />
+                      </Button>
+                    </div>
                   </li>
                 );
               })}

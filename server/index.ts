@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   AVATAR_DIR,
+  chatCounts,
   clearMemory,
   deleteChat,
   deleteCharacter,
@@ -256,8 +257,8 @@ route('POST', '/api/test', async () => {
 
 // ---------- characters ----------
 
-function characterOut(row: CharacterRow) {
-  return { id: row.id, name: row.name, avatar: row.avatar, card: row.card };
+function characterOut(row: CharacterRow, counts = chatCounts()) {
+  return { id: row.id, name: row.name, avatar: row.avatar, card: row.card, chats: counts[row.id] ?? 0 };
 }
 
 function requireCharacter(charId: number) {
@@ -266,7 +267,10 @@ function requireCharacter(charId: number) {
   return row;
 }
 
-route('GET', '/api/characters', () => listCharacters().map(characterOut));
+route('GET', '/api/characters', () => {
+  const counts = chatCounts(); // counted once for the whole list
+  return listCharacters().map((row) => characterOut(row, counts));
+});
 
 // Body: raw file bytes (PNG card or JSON card).
 route('POST', '/api/characters/import', async ({ body }) => {
