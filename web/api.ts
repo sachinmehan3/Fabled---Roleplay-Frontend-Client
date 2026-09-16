@@ -45,6 +45,7 @@ export const api = {
 
   listChats: (charId: number) => request<Chat[]>('GET', `/api/characters/${charId}/chats`),
   createChat: (charId: number) => request<Chat>('POST', `/api/characters/${charId}/chats`),
+  renameChat: (id: number, title: string) => request<Chat>('PUT', `/api/chats/${id}`, { title }),
   deleteChat: (id: number) => request('DELETE', `/api/chats/${id}`),
   branchChat: (chatId: number, messageId: number) =>
     request<Chat>('POST', `/api/chats/${chatId}/branch`, { messageId }),

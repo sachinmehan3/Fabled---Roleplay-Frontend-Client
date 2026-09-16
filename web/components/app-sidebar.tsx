@@ -47,12 +47,15 @@ interface Props {
   onDeleteCharacter: (id: number) => void;
   onNewChat: (characterId: number) => void;
   onSelectChat: (id: number) => void;
+  onRenameChat: (id: number, title: string) => void;
   onDeleteChat: (id: number) => void;
   onOpenSettings: () => void;
   onOpenLorebooks: () => void;
   /** Collapse the sidebar. Desktop only - on a phone it closes by tapping away. */
   onClose?: () => void;
 }
+
+const EM_DASH = '""" + chr(8212) + """';
 
 function formatDate(ts: number) {
   const d = new Date(ts);
@@ -79,6 +82,8 @@ export function AppSidebar(p: Props) {
     light: <Sun />,
   };
   const [query, setQuery] = useState('');
+  const [renaming, setRenaming] = useState<number | null>(null);
+  const [draft, setDraft] = useState('');
   const filtered = p.characters.filter((c) => c.name.toLowerCase().includes(query.trim().toLowerCase()));
   const selected = p.characters.find((c) => c.id === p.selectedCharacterId);
 
@@ -226,35 +231,74 @@ export function AppSidebar(p: Props) {
             <ul className="space-y-0.5">
               {p.chats.map((c) => {
                 const active = c.id === p.selectedChatId;
+                // Chats made before naming existed carry a generated title; it
+                // is not a name anybody chose, so fall back to the date for it.
+                const named = c.title.trim() && !c.title.startsWith(`${selected.name} ${EM_DASH}`) ? c.title : '';
+                const startRename = () => {
+                  setRenaming(c.id);
+                  setDraft(named);
+                };
+                const commit = () => {
+                  if (renaming !== c.id) return;
+                  setRenaming(null);
+                  if (draft.trim() !== named) p.onRenameChat(c.id, draft.trim());
+                };
+
                 return (
                   <li key={c.id} className="group/item relative">
-                    <button
-                      onClick={() => p.onSelectChat(c.id)}
-                      aria-current={active || undefined}
-                      className={cn(
-                        'hover:bg-sidebar-accent focus-visible:ring-ring/50 flex w-full items-center gap-2.5 rounded-lg px-2 py-2 pr-9 text-left text-sm outline-none focus-visible:ring-[3px]',
-                        active && 'bg-sidebar-accent font-medium',
-                      )}
-                    >
-                      {c.branched_from ? (
-                        <GitBranch className="text-muted-foreground size-4 shrink-0" />
-                      ) : (
-                        <MessageSquare className="text-muted-foreground size-4 shrink-0" />
-                      )}
-                      <span className="min-w-0 flex-1 truncate">{formatDate(c.created_at)}</span>
-                      <span className="text-muted-foreground text-xs tabular-nums max-md:hidden md:group-hover/item:opacity-0">
-                        {c.message_count ?? 0}
-                      </span>
-                    </button>
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      aria-label="Delete chat"
-                      onClick={() => p.onDeleteChat(c.id)}
-                      className="hover:text-destructive absolute top-1/2 right-1.5 -translate-y-1/2 md:opacity-0 md:group-hover/item:opacity-100 md:focus-visible:opacity-100"
-                    >
-                      <Trash2 />
-                    </Button>
+                    {renaming === c.id ? (
+                      <Input
+                        autoFocus
+                        value={draft}
+                        aria-label="Chat name"
+                        placeholder={formatDate(c.created_at)}
+                        className="bg-background h-9 text-sm"
+                        onChange={(e) => setDraft(e.target.value)}
+                        onBlur={commit}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') commit();
+                          if (e.key === 'Escape') setRenaming(null);
+                        }}
+                      />
+                    ) : (
+                      <>
+                        <button
+                          // Clicking the chat you are already in renames it, the
+                          // way a file does. Clicking another one opens it.
+                          onClick={() => (active ? startRename() : p.onSelectChat(c.id))}
+                          aria-current={active || undefined}
+                          title={active ? 'Click again to rename' : undefined}
+                          className={cn(
+                            'hover:bg-sidebar-accent focus-visible:ring-ring/50 flex w-full items-center gap-2.5 rounded-lg px-2 py-2 pr-16 text-left text-sm outline-none focus-visible:ring-[3px]',
+                            active && 'bg-sidebar-accent font-medium',
+                          )}
+                        >
+                          {c.branched_from ? (
+                            <GitBranch className="text-muted-foreground size-4 shrink-0" />
+                          ) : (
+                            <MessageSquare className="text-muted-foreground size-4 shrink-0" />
+                          )}
+                          <span className="min-w-0 flex-1 truncate">{named || formatDate(c.created_at)}</span>
+                          <span className="text-muted-foreground text-xs tabular-nums max-md:hidden md:group-hover/item:opacity-0">
+                            {c.message_count ?? 0}
+                          </span>
+                        </button>
+                        <div className="absolute top-1/2 right-1.5 flex -translate-y-1/2 items-center md:opacity-0 md:group-hover/item:opacity-100 md:focus-within:opacity-100">
+                          <Button variant="ghost" size="icon-xs" aria-label="Rename chat" onClick={startRename}>
+                            <Pencil />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            aria-label="Delete chat"
+                            onClick={() => p.onDeleteChat(c.id)}
+                            className="hover:text-destructive"
+                          >
+                            <Trash2 />
+                          </Button>
+                        </div>
+                      </>
+                    )}
                   </li>
                 );
               })}

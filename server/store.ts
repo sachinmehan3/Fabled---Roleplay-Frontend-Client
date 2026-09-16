@@ -239,6 +239,15 @@ export function getChat(id: number): ChatRow | undefined {
   return allChats().find((c) => c.id === id);
 }
 
+export function updateChat(id: number, patch: Partial<Omit<ChatRow, 'id'>>): ChatRow | undefined {
+  const rows = allChats();
+  const row = rows.find((c) => c.id === id);
+  if (!row) return undefined;
+  Object.assign(row, patch);
+  saveChats(rows);
+  return row;
+}
+
 export function insertChat(
   characterId: number,
   title: string,

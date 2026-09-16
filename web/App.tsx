@@ -205,6 +205,10 @@ export function App() {
       setChatId(id);
       setSidebarOpen(false);
     },
+    onRenameChat: run(async (id: number, title: string) => {
+      await api.renameChat(id, title);
+      if (characterId) await refreshChats(characterId);
+    }),
     onDeleteChat: run(deleteChat),
     onOpenSettings: () => openSettings('connection'),
     onOpenLorebooks: () => {

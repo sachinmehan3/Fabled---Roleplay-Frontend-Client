@@ -30,6 +30,7 @@ import {
   saveMemory,
   saveSettings,
   saveSwipes,
+  updateChat,
   updateCharacter,
   updateLorebook,
   type CharacterRow,
@@ -357,7 +358,7 @@ route('GET', '/api/characters/:id/chats', ({ params }) => listChats(id(params.id
 
 route('POST', '/api/characters/:id/chats', ({ params }) => {
   const c = requireCharacter(id(params.id));
-  const chat = insertChat(c.id, `${c.name} — ${new Date().toLocaleString()}`);
+  const chat = insertChat(c.id, '');
   // Greeting + alternate greetings become swipes of the first message.
   const greetings = [c.card.first_mes, ...c.card.alternate_greetings].filter((g) => g.trim());
   if (greetings.length) insertMessage(chat.id, 'assistant', greetings);
@@ -375,7 +376,12 @@ route('POST', '/api/chats/:id/branch', async ({ params, json }) => {
   const at = typeof messageId === 'number' ? messages.findIndex((m) => m.id === messageId) : messages.length - 1;
   if (at === -1) throw new HttpError(404, 'That message is not in this chat');
 
-  const branch = insertChat(chat.character_id, `${chat.title} (branched)`, Date.now(), chat.id);
+  const branch = insertChat(
+    chat.character_id,
+    chat.title.trim() ? `${chat.title} (branched)` : '',
+    Date.now(),
+    chat.id,
+  );
 
   // Copy the messages, carrying their prompts and thinking across so the
   // generation details of an old reply still work in the branch.
@@ -396,6 +402,14 @@ route('POST', '/api/chats/:id/branch', async ({ params, json }) => {
   // branch starts with none and they re-establish themselves as it goes.
 
   return getChat(branch.id);
+});
+
+// Body: { title }. Naming a chat is the only thing worth editing about it.
+route('PUT', '/api/chats/:id', async ({ params, json }) => {
+  const chat = requireChat(id(params.id));
+  const { title } = await json<{ title?: string }>();
+  updateChat(chat.id, { title: typeof title === 'string' ? title.trim().slice(0, 120) : chat.title });
+  return getChat(chat.id);
 });
 
 route('DELETE', '/api/chats/:id', ({ params }) => {
