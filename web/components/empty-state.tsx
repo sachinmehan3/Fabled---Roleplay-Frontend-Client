@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Check, PanelLeft, PlugZap, Plus, Upload } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, publicUrl } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
 interface Props {
@@ -54,7 +54,7 @@ export function EmptyState({
         <PanelLeft />
       </Button>
       <div className="w-full max-w-md text-center">
-        <img src="/fabled-icon.svg" alt="" className="mx-auto mb-5 size-14" />
+        <img src={publicUrl('fabled-icon.svg')} alt="" className="mx-auto mb-5 size-14" />
         <h1 className="text-2xl font-semibold tracking-tight">Start a roleplay</h1>
         <p className="text-muted-foreground mt-2 text-sm">
           {hasCharacters

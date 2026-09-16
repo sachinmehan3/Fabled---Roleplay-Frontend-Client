@@ -27,7 +27,13 @@ const contentSecurityPolicy = (): Plugin => ({
     <meta http-equiv="Content-Security-Policy" content="${CSP}" />`),
 });
 
+// GitHub Pages serves a project (non-root) site from /<repo>/, so the build
+// needs every asset path prefixed with that. Local dev and other static hosts
+// stay at the domain root; the deploy workflow sets VITE_BASE to override it.
+const base = process.env.VITE_BASE ?? '/';
+
 export default defineConfig({
+  base,
   plugins: [react(), tailwindcss(), contentSecurityPolicy()],
   resolve: {
     alias: { '@': path.resolve(import.meta.dirname, 'web') },

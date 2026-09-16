@@ -19,7 +19,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { Character, Chat } from '@/types';
-import { cn } from '@/lib/utils';
+import { cn, publicUrl } from '@/lib/utils';
 import { THEMES, useTheme } from '@/hooks/use-theme';
 import { SETTINGS_TABS, type SettingsTab } from '@/components/settings-dialog';
 import { Button } from '@/components/ui/button';
@@ -92,7 +92,7 @@ function NavItem({ icon: Icon, onClick, children }: { icon: LucideIcon; onClick:
 export function AppSidebar(p: Props) {
   const { theme, setTheme } = useTheme();
   const themeIcon = {
-    default: <img src="/fabled-icon-transparent.svg" alt="" className="size-4 shrink-0" />,
+    default: <img src={publicUrl('fabled-icon-transparent.svg')} alt="" className="size-4 shrink-0" />,
     dark: <MoonStar />,
     light: <Sun />,
   };
@@ -104,7 +104,7 @@ export function AppSidebar(p: Props) {
     <aside className={cn('bg-sidebar text-sidebar-foreground border-sidebar-border flex h-full w-72 flex-col border-r', p.className)}>
       {/* Brand */}
       <div className="flex h-14 items-center gap-2 px-4">
-        <img src="/fabled-icon-transparent.svg" alt="" className="size-5 shrink-0" />
+        <img src={publicUrl('fabled-icon-transparent.svg')} alt="" className="size-5 shrink-0" />
         <span className="flex-1 text-[15px] font-semibold tracking-tight">Fabled</span>
         {p.onClose && (
           <Tooltip>

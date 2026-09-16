@@ -18,7 +18,8 @@
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "types": [
-      "node"
+      "node",
+      "vite/client"
     ],
     "paths": {
       "@/*": [
