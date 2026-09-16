@@ -180,7 +180,11 @@ export const MessageItem = memo(function MessageItem(p: Props) {
       />
 
       <div className="min-w-0 flex-1">
-        <div className={cn('flex h-7 items-center gap-2', isUser && 'flex-row-reverse')}>
+        {/* Your side is only as wide as what you wrote. Keeping the controls and
+            the bubble in one column that shrinks to fit lines them up with each
+            other rather than with the page. */}
+        <div className={cn(isUser && 'ml-auto flex max-w-[92%] flex-col', isUser && (editing ? 'w-full' : 'w-fit'))}>
+          <div className={cn('flex h-7 items-center gap-2', isUser && 'flex-row-reverse')}>
           <button
             type="button"
             onClick={p.onOpenProfile}
@@ -198,10 +202,7 @@ export const MessageItem = memo(function MessageItem(p: Props) {
             <div
               className={cn(
                 'flex items-center gap-0.5 transition-opacity md:opacity-0 md:group-hover/msg:opacity-100 md:focus-within:opacity-100',
-                // The character's row is full width, so its controls sit at the
-                // far end. Yours is only as wide as what you wrote, so they stay
-                // with your name instead of stranding themselves out to the left.
-                !isUser && 'ml-auto',
+                isUser ? 'mr-auto' : 'ml-auto',
               )}
             >
               <IconAction label={copied ? 'Copied' : 'Copy'} onClick={copy}>
@@ -269,14 +270,8 @@ export const MessageItem = memo(function MessageItem(p: Props) {
             </div>
           </div>
         ) : (
-          <div className={cn('mt-1', isUser && 'flex justify-end')}>
-            <div
-              className={cn(
-                p.bubble && 'bg-muted/60 rounded-xl px-4 py-3',
-                // The character's prose fills the column; your line hugs its own text.
-                p.bubble && isUser && 'max-w-[92%]',
-              )}
-            >
+          <div className="mt-1">
+            <div className={cn(p.bubble && 'bg-muted/60 rounded-xl px-4 py-3')}>
               {p.streaming && !p.text ? (
                 <span className="rp-typing text-muted-foreground inline-flex gap-1 py-2" aria-label="Generating">
                   <i />
@@ -319,7 +314,8 @@ export const MessageItem = memo(function MessageItem(p: Props) {
               <TooltipContent>{atLastSwipe ? 'Generate another version' : 'Next version'}</TooltipContent>
             </Tooltip>
           </div>
-        )}
+          )}
+        </div>
       </div>
     </article>
   );
