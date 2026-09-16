@@ -28,6 +28,7 @@ export interface Chat {
   title: string;
   created_at: number;
   message_count?: number;
+  branched_from?: number;
 }
 
 export interface VisionCheck {

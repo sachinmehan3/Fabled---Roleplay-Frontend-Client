@@ -364,6 +364,40 @@ route('POST', '/api/characters/:id/chats', ({ params }) => {
   return getChat(chat.id);
 });
 
+/**
+ * Split a chat in two at a message: the new one holds everything up to and
+ * including it, and the original is left exactly as it was.
+ */
+route('POST', '/api/chats/:id/branch', async ({ params, json }) => {
+  const chat = requireChat(id(params.id));
+  const { messageId } = await json<{ messageId?: number }>().catch(() => ({}) as { messageId?: number });
+  const messages = listMessages(chat.id);
+  const at = typeof messageId === 'number' ? messages.findIndex((m) => m.id === messageId) : messages.length - 1;
+  if (at === -1) throw new HttpError(404, 'That message is not in this chat');
+
+  const branch = insertChat(chat.character_id, `${chat.title} (branched)`, Date.now(), chat.id);
+
+  // Copy the messages, carrying their prompts and thinking across so the
+  // generation details of an old reply still work in the branch.
+  const newIdOf = new Map<number, number>();
+  for (const m of messages.slice(0, at + 1)) {
+    const meta = m.meta.map((entry, i) => (entry ? { ...entry, ...getRecord(chat.id, m.id, i) } : null));
+    const copy = insertMessage(branch.id, m.role, [...m.swipes], meta, m.created_at, m.swipe_index);
+    newIdOf.set(m.id, copy.id);
+  }
+
+  // The branch inherits what was remembered, pointed at the copied messages.
+  const memory = getMemory(chat.id);
+  if (memory.summary.trim()) {
+    const covered = [...newIdOf.entries()].filter(([old]) => old <= memory.coveredThrough).map(([, id]) => id);
+    saveMemory(branch.id, { ...memory, coveredThrough: covered.length ? Math.max(...covered) : 0 });
+  }
+  // Lorebook timers are counted in messages, so they would be wrong here. The
+  // branch starts with none and they re-establish themselves as it goes.
+
+  return getChat(branch.id);
+});
+
 route('DELETE', '/api/chats/:id', ({ params }) => {
   deleteChat(id(params.id));
   return { ok: true };

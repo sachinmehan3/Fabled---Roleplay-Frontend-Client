@@ -269,6 +269,10 @@ export function App() {
             onMessagesChanged={() => refreshChats(character.id).catch(() => {})}
             onOpenSidebar={openSidebar}
             sidebarCollapsed={!railOpen}
+            onBranched={run(async (id: number) => {
+              await refreshChats(character.id);
+              setChatId(id);
+            })}
             onEditCharacter={() => openEditor(character)}
             onEditUser={() => openSettings('user')}
           />

@@ -214,6 +214,8 @@ export interface ChatRow {
   title: string;
   created_at: number;
   message_count: number;
+  /** The chat this one was split off from, if it was. */
+  branched_from?: number;
 }
 
 const allChats = () => readJson<ChatRow[]>(CHATS_FILE, []);
@@ -237,13 +239,19 @@ export function getChat(id: number): ChatRow | undefined {
   return allChats().find((c) => c.id === id);
 }
 
-export function insertChat(characterId: number, title: string, createdAt = Date.now()): ChatRow {
+export function insertChat(
+  characterId: number,
+  title: string,
+  createdAt = Date.now(),
+  branchedFrom?: number,
+): ChatRow {
   const row: ChatRow = {
     id: nextId('chat'),
     character_id: characterId,
     title,
     created_at: createdAt,
     message_count: 0,
+    ...(branchedFrom ? { branched_from: branchedFrom } : {}),
   };
   saveChats([...allChats(), row]);
   return row;
@@ -486,6 +494,7 @@ export function insertMessage(
   swipes: string[],
   meta: (GenerationMeta | null)[] = [],
   createdAt = Date.now(),
+  swipeIndex = 0,
 ): MessageRow {
   const row: MessageRow = {
     id: nextId('message'),
@@ -493,7 +502,7 @@ export function insertMessage(
     role,
     swipes,
     meta: swipes.map((_, i) => withoutBulk(meta[i])),
-    swipe_index: 0,
+    swipe_index: Math.min(Math.max(0, swipeIndex), Math.max(0, swipes.length - 1)),
     created_at: createdAt,
   };
   appendJsonl(chatFile(chatId), row);

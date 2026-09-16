@@ -29,6 +29,7 @@ interface Props {
   sidebarCollapsed: boolean;
   onEditCharacter: () => void;
   onEditUser: () => void;
+  onBranched: (chatId: number) => void;
 }
 
 type Streaming = { mode: 'new' | 'swipe' | 'redo'; text: string; reasoning: string; targetId?: number } | null;
@@ -48,6 +49,7 @@ export function ChatView({
   sidebarCollapsed,
   onEditCharacter,
   onEditUser,
+  onBranched,
 }: Props) {
   const confirm = useConfirm();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -305,6 +307,11 @@ export function ChatView({
                   onLoadReasoning={() =>
                     api.getMessageMeta(m.id, m.swipe_index).then((full) => full.reasoning ?? '')
                   }
+                  onBranch={safe(async () => {
+                    const branch = await api.branchChat(chatId, m.id);
+                    toast.success('Branched into a new chat');
+                    onBranched(branch.id);
+                  })}
                   onOpenProfile={() => setProfile(isUser ? 'user' : 'character')}
                   onOpenDetails={() =>
                     setDetails({

@@ -8,6 +8,7 @@ A minimal, hackable roleplay chat frontend in the spirit of SillyTavern.
 - **Character editor:** write a card from scratch or edit any imported one, avatar included
 - **User card:** your own name, persona and picture, on their own Settings tab; the persona is sent with every prompt, and a vision model can write your appearance from your picture
 - **Expandable profiles:** click any avatar or name to see the full card picture and its fields
+- **Branching:** split a chat at any reply and carry on down a different road, with the original left where it was
 - **Swipes:** step through past replies, or press › on the latest reply to generate a new version
 - **Edit, copy, regenerate, delete (with confirmation) and Stop:** if you stop a reply midway, the partial text is kept
 - **Prompt post-processing** for backends that insist on one system block and alternating turns: merge, alternating, alternating-user-first, or flatten to a single message
@@ -149,6 +150,7 @@ web/
 | GET | `/api/user/vision` | whether the current model can read images (probed once, then cached) |
 | POST | `/api/user/describe` | describes your picture for the persona field |
 | GET/POST | `/api/characters/:id/chats` | |
+| POST | `/api/chats/:id/branch` | `{messageId}`: copies the chat up to that message into a new one |
 | DELETE | `/api/chats/:id` | |
 | GET/POST | `/api/chats/:id/messages` | |
 | PATCH/DELETE | `/api/messages/:id` | `{content}` or `{swipe_index}` |

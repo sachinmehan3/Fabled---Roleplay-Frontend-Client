@@ -6,6 +6,7 @@ import {
   MoonStar,
   Ellipsis,
   BookOpen,
+  GitBranch,
   LayoutGrid,
   PanelLeftClose,
   Pencil,
@@ -235,7 +236,11 @@ export function AppSidebar(p: Props) {
                         active && 'bg-sidebar-accent font-medium',
                       )}
                     >
-                      <MessageSquare className="text-muted-foreground size-4 shrink-0" />
+                      {c.branched_from ? (
+                        <GitBranch className="text-muted-foreground size-4 shrink-0" />
+                      ) : (
+                        <MessageSquare className="text-muted-foreground size-4 shrink-0" />
+                      )}
                       <span className="min-w-0 flex-1 truncate">{formatDate(c.created_at)}</span>
                       <span className="text-muted-foreground text-xs tabular-nums max-md:hidden md:group-hover/item:opacity-0">
                         {c.message_count ?? 0}

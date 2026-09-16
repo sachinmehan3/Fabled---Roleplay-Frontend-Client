@@ -46,6 +46,8 @@ export const api = {
   listChats: (charId: number) => request<Chat[]>('GET', `/api/characters/${charId}/chats`),
   createChat: (charId: number) => request<Chat>('POST', `/api/characters/${charId}/chats`),
   deleteChat: (id: number) => request('DELETE', `/api/chats/${id}`),
+  branchChat: (chatId: number, messageId: number) =>
+    request<Chat>('POST', `/api/chats/${chatId}/branch`, { messageId }),
 
   listLorebooks: () => request<Lorebook[]>('GET', '/api/lorebooks'),
   createLorebook: (name?: string) => request<Lorebook>('POST', '/api/lorebooks', { name }),

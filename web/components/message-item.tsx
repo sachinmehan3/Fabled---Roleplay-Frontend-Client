@@ -7,6 +7,7 @@ import {
   ChevronRight,
   ChevronRight as Caret,
   Copy,
+  GitBranch,
   LoaderCircle,
   Pencil,
   RefreshCw,
@@ -34,6 +35,7 @@ interface Props {
   onDelete?: () => void;
   onOpenProfile?: () => void;
   onOpenDetails?: () => void;
+  onBranch?: () => void;
   /** Draw a panel behind the message. Off leaves plain text on the page. */
   bubble?: boolean;
   /** Delete mode: the row becomes a target rather than a conversation. */
@@ -225,6 +227,11 @@ export const MessageItem = memo(function MessageItem(p: Props) {
               {m.role === 'assistant' && (
                 <IconAction label="Regenerate" onClick={p.onRegenerate}>
                   <RefreshCw />
+                </IconAction>
+              )}
+              {m.role === 'assistant' && p.onBranch && (
+                <IconAction label="Branch a new chat from here" onClick={p.onBranch}>
+                  <GitBranch />
                 </IconAction>
               )}
               <IconAction label="Delete" onClick={p.onDelete} className="hover:text-destructive">
