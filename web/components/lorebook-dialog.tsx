@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox, Select } from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -71,18 +72,6 @@ function Cell({ label, hint, children }: { label: string; hint?: string; childre
     </label>
   );
 }
-
-function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
-  return (
-    <label className="flex cursor-pointer items-center gap-2 text-xs">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="accent-primary size-4" />
-      {label}
-    </label>
-  );
-}
-
-const select =
-  'border-input bg-background focus-visible:ring-ring/50 h-9 rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px] dark:bg-input/30';
 
 export function LorebookDialog({ open, onOpenChange, characters }: Props) {
   const confirm = useConfirm();
@@ -176,14 +165,18 @@ export function LorebookDialog({ open, onOpenChange, characters }: Props) {
         </DialogHeader>
 
         <div className="flex flex-wrap items-center gap-2 border-b px-6 py-3">
-          <select value={bookId ?? ''} onChange={(e) => setBookId(Number(e.target.value))} className={cn(select, 'min-w-44 flex-1')} aria-label="Lorebook">
-            {books.length === 0 && <option value="">No lorebooks yet</option>}
-            {books.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name} ({b.entries.length})
-              </option>
-            ))}
-          </select>
+          <div className="min-w-44 flex-1">
+            <Select
+              label="Lorebook"
+              value={bookId ?? 0}
+              onChange={(v) => setBookId(Number(v))}
+              options={
+                books.length
+                  ? books.map((b) => ({ value: b.id, label: `${b.name} (${b.entries.length})` }))
+                  : [{ value: 0, label: 'No lorebooks yet' }]
+              }
+            />
+          </div>
           <Button variant="outline" size="sm" onClick={addBook}>
             <Plus />
             New
@@ -225,18 +218,14 @@ export function LorebookDialog({ open, onOpenChange, characters }: Props) {
                 <Input value={draft.name} onChange={(e) => edit({ name: e.target.value })} className="h-9" />
               </Cell>
               <Cell label="Applies to" hint="Every character unless you pick one.">
-                <select
-                  className={select}
-                  value={draft.characterIds[0] ?? ''}
-                  onChange={(e) => edit({ characterIds: e.target.value ? [Number(e.target.value)] : [] })}
-                >
-                  <option value="">Every character</option>
-                  {characters.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                <Select
+                  value={draft.characterIds[0] ?? 0}
+                  onChange={(v) => edit({ characterIds: v ? [Number(v)] : [] })}
+                  options={[
+                    { value: 0, label: 'Every character' },
+                    ...characters.map((c) => ({ value: c.id, label: c.name })),
+                  ]}
+                />
               </Cell>
               <Cell label="Scan depth" hint="Messages searched for keys.">
                 <Input
@@ -268,9 +257,9 @@ export function LorebookDialog({ open, onOpenChange, characters }: Props) {
                 />
               </Cell>
               <div className="grid content-center gap-2">
-                <Toggle checked={draft.enabled} onChange={(v) => edit({ enabled: v })} label="Book enabled" />
-                <Toggle checked={draft.caseSensitive} onChange={(v) => edit({ caseSensitive: v })} label="Case sensitive keys" />
-                <Toggle checked={draft.matchWholeWords} onChange={(v) => edit({ matchWholeWords: v })} label="Match whole words" />
+                <Checkbox checked={draft.enabled} onChange={(v) => edit({ enabled: v })} label="Book enabled" />
+                <Checkbox checked={draft.caseSensitive} onChange={(v) => edit({ caseSensitive: v })} label="Case sensitive keys" />
+                <Checkbox checked={draft.matchWholeWords} onChange={(v) => edit({ matchWholeWords: v })} label="Match whole words" />
               </div>
             </div>
 
@@ -303,12 +292,11 @@ export function LorebookDialog({ open, onOpenChange, characters }: Props) {
                     return (
                       <li key={entry.id}>
                         <div className="flex items-center gap-2 px-2 py-1.5">
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={entry.enabled}
-                            onChange={(e) => editEntry(entry.id, { enabled: e.target.checked })}
-                            className="accent-primary size-4"
-                            aria-label="Entry enabled"
+                            onChange={(v) => editEntry(entry.id, { enabled: v })}
+                            label=""
+                            className="shrink-0"
                           />
                           <button
                             type="button"
@@ -341,14 +329,14 @@ export function LorebookDialog({ open, onOpenChange, characters }: Props) {
                                 <Input value={entry.title} onChange={(e) => editEntry(entry.id, { title: e.target.value })} className="h-9" />
                               </Cell>
                               <Cell label="Trigger">
-                                <select
-                                  className={select}
+                                <Select
                                   value={entry.mode}
-                                  onChange={(e) => editEntry(entry.id, { mode: e.target.value as LoreEntry['mode'] })}
-                                >
-                                  <option value="selective">When keys match</option>
-                                  <option value="constant">Always on</option>
-                                </select>
+                                  onChange={(v) => editEntry(entry.id, { mode: v as LoreEntry['mode'] })}
+                                  options={[
+                                    { value: 'selective', label: 'When keys match' },
+                                    { value: 'constant', label: 'Always on' },
+                                  ]}
+                                />
                               </Cell>
                               <Cell label="Insertion order" hint="Higher goes nearer the end.">
                                 <Input type="number" value={entry.order} onChange={(e) => editEntry(entry.id, { order: Number(e.target.value) })} className="h-9" />
@@ -366,17 +354,14 @@ export function LorebookDialog({ open, onOpenChange, characters }: Props) {
 
                             <div className="grid gap-4 sm:grid-cols-[10rem_1fr]">
                               <Cell label="Optional filter">
-                                <select
-                                  className={select}
+                                <Select
                                   value={entry.logic}
-                                  onChange={(e) => editEntry(entry.id, { logic: e.target.value as LoreEntry['logic'] })}
-                                >
-                                  {Object.entries(LOGIC_LABELS).map(([value, label]) => (
-                                    <option key={value} value={value}>
-                                      {label}
-                                    </option>
-                                  ))}
-                                </select>
+                                  onChange={(v) => editEntry(entry.id, { logic: v as LoreEntry['logic'] })}
+                                  options={Object.entries(LOGIC_LABELS).map(([value, label]) => ({
+                                    value: value as LoreEntry['logic'],
+                                    label,
+                                  }))}
+                                />
                               </Cell>
                               <Cell label="Filter keys" hint="Leave empty to ignore the filter.">
                                 <Input
@@ -397,15 +382,15 @@ export function LorebookDialog({ open, onOpenChange, characters }: Props) {
 
                             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                               <Cell label="Position">
-                                <select
-                                  className={select}
+                                <Select
                                   value={entry.position}
-                                  onChange={(e) => editEntry(entry.id, { position: e.target.value as LoreEntry['position'] })}
-                                >
-                                  <option value="before_char">Before character</option>
-                                  <option value="after_char">After character</option>
-                                  <option value="at_depth">At depth</option>
-                                </select>
+                                  onChange={(v) => editEntry(entry.id, { position: v as LoreEntry['position'] })}
+                                  options={[
+                                    { value: 'before_char', label: 'Before character' },
+                                    { value: 'after_char', label: 'After character' },
+                                    { value: 'at_depth', label: 'At depth' },
+                                  ]}
+                                />
                               </Cell>
                               {entry.position === 'at_depth' && (
                                 <>
@@ -413,15 +398,15 @@ export function LorebookDialog({ open, onOpenChange, characters }: Props) {
                                     <Input type="number" min={0} value={entry.depth} onChange={(e) => editEntry(entry.id, { depth: Number(e.target.value) })} className="h-9" />
                                   </Cell>
                                   <Cell label="As">
-                                    <select
-                                      className={select}
+                                    <Select
                                       value={entry.role}
-                                      onChange={(e) => editEntry(entry.id, { role: e.target.value as LoreEntry['role'] })}
-                                    >
-                                      <option value="system">System</option>
-                                      <option value="user">User</option>
-                                      <option value="assistant">Assistant</option>
-                                    </select>
+                                      onChange={(v) => editEntry(entry.id, { role: v as LoreEntry['role'] })}
+                                      options={[
+                                        { value: 'system', label: 'System' },
+                                        { value: 'user', label: 'User' },
+                                        { value: 'assistant', label: 'Assistant' },
+                                      ]}
+                                    />
                                   </Cell>
                                 </>
                               )}
@@ -458,10 +443,10 @@ export function LorebookDialog({ open, onOpenChange, characters }: Props) {
                             </div>
 
                             <div className="flex flex-wrap gap-x-5 gap-y-2">
-                              <Toggle checked={entry.prioritizeInclusion} onChange={(v) => editEntry(entry.id, { prioritizeInclusion: v })} label="Win its group by order" />
-                              <Toggle checked={entry.excludeRecursion} onChange={(v) => editEntry(entry.id, { excludeRecursion: v })} label="Other entries cannot trigger it" />
-                              <Toggle checked={entry.preventRecursion} onChange={(v) => editEntry(entry.id, { preventRecursion: v })} label="It cannot trigger others" />
-                              <Toggle checked={entry.delayUntilRecursion} onChange={(v) => editEntry(entry.id, { delayUntilRecursion: v })} label="Only on recursion" />
+                              <Checkbox checked={entry.prioritizeInclusion} onChange={(v) => editEntry(entry.id, { prioritizeInclusion: v })} label="Win its group by order" />
+                              <Checkbox checked={entry.excludeRecursion} onChange={(v) => editEntry(entry.id, { excludeRecursion: v })} label="Other entries cannot trigger it" />
+                              <Checkbox checked={entry.preventRecursion} onChange={(v) => editEntry(entry.id, { preventRecursion: v })} label="It cannot trigger others" />
+                              <Checkbox checked={entry.delayUntilRecursion} onChange={(v) => editEntry(entry.id, { delayUntilRecursion: v })} label="Only on recursion" />
                             </div>
                           </div>
                         )}
