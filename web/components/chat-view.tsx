@@ -150,6 +150,23 @@ export function ChatView({
   };
 
   /**
+   * Throw the last reply away and answer again, rather than adding a version
+   * beside it. With no reply to replace - it was deleted, or never came - this
+   * simply answers the message that is waiting.
+   */
+  const regenerate = async () => {
+    if (streaming) return;
+    const target = messages.at(-1);
+    if (!target) return;
+    if (target.role === 'assistant') {
+      if (messages.length < 2) return; // the opening greeting has nothing to answer
+      await api.deleteMessage(target.id);
+      setMessages((ms) => ms.slice(0, -1));
+    }
+    await runGeneration('new');
+  };
+
+  /**
    * Picking a message takes it and everything after it: a reply only makes
    * sense in the light of what came before, so leaving the tail behind would
    * leave the conversation talking about something that no longer happened.
@@ -199,7 +216,8 @@ export function ChatView({
     };
 
   const last = messages.at(-1);
-  const canRegenerate = !streaming && last?.role === 'assistant';
+  // Either there is a reply to replace, or a message of yours waiting for one.
+  const canRegenerate = !streaming && (last?.role === 'user' || messages.length > 1);
 
   // Ctrl/Cmd + Enter regenerates the last reply. The composer handles its own
   // keydown; this covers the rest of the page without stealing the shortcut
@@ -211,7 +229,7 @@ export function ChatView({
       if (el?.closest('input, textarea, [contenteditable="true"], [role="dialog"], [role="alertdialog"]')) return;
       if (!canRegenerate) return;
       e.preventDefault();
-      safe(() => runGeneration('swipe'))();
+      safe(regenerate)();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -275,7 +293,7 @@ export function ChatView({
                   selected={selection?.includes(m.id)}
                   onSelect={() => selectFrom(m)}
                   onSwipe={safe((dir: -1 | 1) => swipe(m, dir))}
-                  onRegenerate={safe(() => runGeneration('swipe'))}
+                  onRegenerate={safe(regenerate)}
                   onEdit={safe((content: string) => edit(m, content))}
                   onDelete={safe(() => remove(m))}
                   reasoning={isStreamTarget ? streaming.reasoning : undefined}
@@ -380,7 +398,7 @@ export function ChatView({
                 // Regenerate without losing whatever is half-typed in the box.
                 if (!canRegenerate) return;
                 e.preventDefault();
-                safe(() => runGeneration('swipe'))();
+                safe(regenerate)();
               } else if (!e.shiftKey) {
                 e.preventDefault();
                 send();
