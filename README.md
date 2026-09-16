@@ -12,6 +12,7 @@ A minimal, hackable roleplay chat frontend in the spirit of SillyTavern.
 - **Edit, copy, regenerate, delete (with confirmation) and Stop:** if you stop a reply midway, the partial text is kept
 - **Prompt builder** with `{{char}}` / `{{user}}` macros, card system prompt override (`{{original}}`), post-history instructions and a context budget that drops the oldest messages first
 - **Model thinking:** reasoning is streamed into a fold-away panel above the reply, whether the provider sends it as `reasoning_content`, `reasoning` or `<think>` tags in the text
+- **Lorebooks:** World Info in the SillyTavern tradition - keyword and regex triggers, optional filters with AND ANY / AND ALL / NOT ANY / NOT ALL, constant and selective entries, recursion, inclusion groups, sticky / cooldown / delay, a token budget, and import of SillyTavern exports
 - **Chat memory:** when older messages fall out of the window they are summarised into a rolling summary, sent with every reply and editable by hand
 - **Generation details:** every reply keeps a record - the prompt exactly as sent, how much of the history fit, token counts, timings and why the model stopped
 - **Safe markdown:** raw HTML from cards or models is escaped, and only http(s)/mailto links are allowed. `"dialogue"` is highlighted and `*actions*` are italicised
@@ -72,6 +73,8 @@ data/
   chats/12.jsonl             the chat log - one JSON message per line, appended as you talk
   chats/12.prompts.jsonl     the prompt and thinking behind each reply, appended and never rewritten
   chats/12.memory.json       what that chat remembers: the summary and how far it covers
+  chats/12.lore.json         which lorebook entries are sticky or cooling down in that chat
+  lorebooks.json             every lorebook and its entries
   avatars/                   character and user pictures
 ```
 
@@ -102,6 +105,8 @@ tests/              node:test suites for the logic above
 server/
   index.ts          routes + SSE generation endpoint
   seed.ts           adds the starter character on a first run
+  lorebook.ts       World Info: matching, recursion, groups, timed effects, budget
+  lorebook-import.ts  reads a SillyTavern World Info export
   memory.ts         folds forgotten messages into a rolling summary
   store.ts          JSON/JSONL storage, settings, generation records
   migrate-sqlite.ts one-time import of an older data/rp.db
@@ -146,6 +151,9 @@ web/
 | GET/POST | `/api/chats/:id/messages` | |
 | PATCH/DELETE | `/api/messages/:id` | `{content}` or `{swipe_index}` |
 | GET | `/api/messages/:id/meta/:swipe` | the generation record for one version, with its prompt |
+| GET/POST | `/api/lorebooks` | list, or make a new one |
+| GET/PUT/DELETE | `/api/lorebooks/:id` | |
+| POST | `/api/lorebooks/import` | raw JSON: ours or a SillyTavern World Info export |
 | GET/PUT/DELETE | `/api/chats/:id/memory` | read, edit or forget what a chat remembers |
 | POST | `/api/chats/:id/memory/fold` | summarise now instead of waiting for an overflow |
 | POST | `/api/chats/:id/generate` | `{mode: "new" \| "swipe"}` → SSE `{delta}` … `{done, message}` |
@@ -153,7 +161,6 @@ web/
 ## Next steps
 
 - **Accurate token counts:** replace `estimateTokens` in `server/prompt.ts` with a real tokenizer. Generation details already show the provider's own counts next to the estimate, so you can see how far off it is
-- **Lorebooks / world info:** add a `lorebooks` table, scan the last N messages for keywords in `buildPrompt`, and insert the matching entries
 - **PNG card export:** write the edited card back into a `chara` chunk so it can be shared
 - **Multiple personas, group chats, regex scripts, presets, themes**
 - **Native Claude / Gemini adapters** alongside `server/llm.ts`
