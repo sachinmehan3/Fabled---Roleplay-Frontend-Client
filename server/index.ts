@@ -33,7 +33,7 @@ import './migrate-sqlite.ts'; // one-time import of an older data/rp.db, if one 
 import { seedStarterCharacter } from './seed.ts';
 import { isPng, normalizeCard, parseCardFile, type CharacterCard } from './cards.ts';
 import { buildPrompt, estimateTokens } from './prompt.ts';
-import { listModels, streamChat, testChat, type StreamReport } from './llm.ts';
+import { describeImage, listModels, streamChat, testChat, type StreamReport } from './llm.ts';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const HOST = process.env.HOST ?? '127.0.0.1'; // local only by default: the API key lives here
@@ -145,6 +145,65 @@ function writeAvatar(buf: Buffer, prefix: string, previous: string | null): stri
 function removeAvatar(file: string | null) {
   if (file) fs.rmSync(path.join(AVATAR_DIR, path.basename(file)), { force: true });
 }
+
+// ---------- describing your picture ----------
+
+const DESCRIBE_PROMPT = `Write how the person in this picture would look to someone meeting them for the first time.
+
+- Third person, present tense, at most 60 words.
+- Cover build, hair, eyes, clothing and bearing. Keep it concrete.
+- Write it as a character description for a roleplay, not as a photo caption. Do not mention photographs, cameras, backgrounds or image quality.
+- Do not guess at names, jobs, ethnicity, health or exact age. An age range is fine if it is obvious.
+- Reply with the description alone.`;
+
+/** The saved user picture, inlined for a vision request. */
+function userPictureDataUrl(): string {
+  const file = getSettings().userAvatar;
+  if (!file) throw new HttpError(400, 'Upload a picture first.');
+  const full = path.join(AVATAR_DIR, path.basename(file));
+  if (!fs.existsSync(full)) throw new HttpError(400, 'That picture is no longer on disk.');
+  const mime = IMAGE_MIME[path.extname(full).toLowerCase()] ?? 'image/png';
+  return `data:${mime};base64,${fs.readFileSync(full).toString('base64')}`;
+}
+
+/** Whether a given provider+model can read images. Cleared when the server restarts. */
+const visionCache = new Map<string, { vision: boolean; reason?: string }>();
+const visionKey = (s: { apiBase: string; model: string }) => `${s.apiBase}|${s.model}`;
+
+/** Asks the model to look at the picture and say one word, to learn whether it can. */
+route('GET', '/api/user/vision', async () => {
+  const settings = getSettings();
+  if (!settings.model) return { vision: false, reason: 'Choose a model first.' };
+  if (!settings.userAvatar) return { vision: false, reason: 'Upload a picture first.' };
+
+  const cached = visionCache.get(visionKey(settings));
+  if (cached) return cached;
+
+  try {
+    await describeImage(settings, userPictureDataUrl(), 'Reply with the single word: ok', 1);
+    const result = { vision: true };
+    visionCache.set(visionKey(settings), result);
+    return result;
+  } catch (e) {
+    const reason = (e as Error).message;
+    const result = { vision: false, reason };
+    // A key or network problem says nothing about the model, so don't remember it as a verdict.
+    if (!/could not reach|no response|401|403|429|timed out/i.test(reason)) {
+      visionCache.set(visionKey(settings), result);
+    }
+    return result;
+  }
+});
+
+route('POST', '/api/user/describe', async () => {
+  const settings = getSettings();
+  if (!settings.model) throw new HttpError(400, 'Choose a model first.');
+  const result = await describeImage(settings, userPictureDataUrl(), DESCRIBE_PROMPT, 220);
+  const text = result.reply.trim();
+  if (!text) throw new HttpError(502, 'The model looked at the picture but said nothing.');
+  visionCache.set(visionKey(settings), { vision: true }); // it plainly can
+  return { text };
+});
 
 route('POST', '/api/user/avatar', async ({ body }) => {
   const file = writeAvatar(await body(), 'user', getSettings().userAvatar || null);

@@ -279,6 +279,49 @@ export async function completeChat(
   };
 }
 
+/**
+ * A completion with one image attached, in the shape every OpenAI-compatible
+ * vision model expects. A model without vision rejects this, which is the only
+ * dependable way to find out whether it has any.
+ */
+export async function describeImage(
+  settings: Settings,
+  imageDataUrl: string,
+  instruction: string,
+  maxTokens: number,
+): Promise<ConnectionTest> {
+  const res = await request(`${baseUrl(settings)}/chat/completions`, {
+    method: 'POST',
+    headers: headers(settings),
+    signal: AbortSignal.timeout(60_000),
+    body: JSON.stringify({
+      model: settings.model,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: instruction },
+            { type: 'image_url', image_url: { url: imageDataUrl } },
+          ],
+        },
+      ],
+      max_tokens: maxTokens,
+      temperature: 0.4,
+      stream: false,
+    }),
+  });
+  if (!res.ok) throw await failure(res);
+  const json: any = await readJson(res);
+  if (json.error) throw new Error(json.error.message ?? JSON.stringify(json.error));
+  const choice = json.choices?.[0];
+  return {
+    model: typeof json.model === 'string' ? json.model : undefined,
+    reply: String(choice?.message?.content ?? '').trim(),
+    usage: json.usage,
+    finishReason: choice?.finish_reason,
+  };
+}
+
 /** The smallest real request there is: enough to prove URL, key and model work together. */
 export function testChat(settings: Settings): Promise<ConnectionTest> {
   return completeChat(settings, [{ role: 'user', content: 'Reply with the single word: ok' }], {

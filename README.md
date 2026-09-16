@@ -6,7 +6,7 @@ A minimal, hackable roleplay chat frontend in the spirit of SillyTavern.
 - **Clean shadcn/ui interface:** light and dark themes, works on phones, character search, toast notifications
 - **Character cards:** import Tavern Card V1/V2/V3 as PNG or JSON; alternate greetings become swipes
 - **Character editor:** write a card from scratch or edit any imported one, avatar included
-- **User card:** your own name, persona and picture, on their own Settings tab; the persona is sent with every prompt
+- **User card:** your own name, persona and picture, on their own Settings tab; the persona is sent with every prompt, and a vision model can write your appearance from your picture
 - **Expandable profiles:** click any avatar or name to see the full card picture and its fields
 - **Swipes:** step through past replies, or press › on the latest reply to generate a new version
 - **Edit, copy, regenerate, delete (with confirmation) and Stop:** if you stop a reply midway, the partial text is kept
@@ -139,6 +139,8 @@ web/
 | PUT/DELETE | `/api/characters/:id` | |
 | POST/DELETE | `/api/characters/:id/avatar` | raw image bytes (PNG/JPEG/WebP/GIF) |
 | POST/DELETE | `/api/user/avatar` | the same, for your user card |
+| GET | `/api/user/vision` | whether the current model can read images (probed once, then cached) |
+| POST | `/api/user/describe` | describes your picture for the persona field |
 | GET/POST | `/api/characters/:id/chats` | |
 | DELETE | `/api/chats/:id` | |
 | GET/POST | `/api/chats/:id/messages` | |

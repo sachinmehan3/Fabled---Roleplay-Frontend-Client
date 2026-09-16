@@ -1,5 +1,15 @@
 import { useEffect, useState } from 'react';
-import { CircleCheck, CircleAlert, Globe, KeyRound, LoaderCircle, PlugZap, RefreshCw, Zap } from 'lucide-react';
+import {
+  CircleCheck,
+  CircleAlert,
+  Globe,
+  KeyRound,
+  LoaderCircle,
+  PlugZap,
+  RefreshCw,
+  ScanFace,
+  Zap,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import type { Settings, ThinkingLevel } from '@/types';
@@ -156,6 +166,12 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
   const [providerUrls, setProviderUrls] = useState<Record<string, string>>(readProviderUrls);
   const [background, setBackground] = useState<File | null>(null);
   const [backgroundCleared, setBackgroundCleared] = useState(false);
+  // Whether this model can read images at all. Only a real request can tell us.
+  const [vision, setVision] = useState<{ checking: boolean; ok: boolean; reason?: string }>({
+    checking: false,
+    ok: false,
+  });
+  const [describing, setDescribing] = useState(false);
 
   // Reset the form each time the dialog opens (not when settings change while it's open).
   useEffect(() => {
@@ -167,6 +183,18 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
       setUserAvatarCleared(false);
       setBackground(null);
       setBackgroundCleared(false);
+
+      // One cheap look, cached per model by the server, so the button below
+      // knows whether it can work before it is pressed.
+      if (settings.model && settings.userAvatar) {
+        setVision({ checking: true, ok: false });
+        api
+          .checkVision()
+          .then((v) => setVision({ checking: false, ok: v.vision, reason: v.reason }))
+          .catch((e: Error) => setVision({ checking: false, ok: false, reason: e.message }));
+      } else {
+        setVision({ checking: false, ok: false });
+      }
 
       // Claim the URL in use for whichever button it belongs to, so the first
       // click on another provider can't lose an endpoint you typed yourself.
@@ -187,6 +215,20 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
   }, [open, form.apiBase]);
 
   const set = <K extends keyof Settings>(k: K, v: Settings[K]) => setForm((f) => ({ ...f, [k]: v }));
+
+  // The button can only work with a saved picture, a model, and a model that sees.
+  const describeBlockedBecause = userAvatar
+    ? 'Save your new picture first, then the model can look at it.'
+    : !form.userAvatar
+      ? 'Upload a picture first.'
+      : !form.model
+        ? 'Choose a model on the Connection tab first.'
+        : vision.checking
+          ? 'Checking whether this model can read pictures…'
+          : !vision.ok
+            ? `This model cannot read pictures. ${vision.reason ?? ''}`.trim()
+            : null;
+  const canDescribe = !describeBlockedBecause;
 
   const selected = providerFor(form.apiBase, providerUrls);
   const preset = PRESETS.find((p) => p.label === selected);
@@ -246,6 +288,20 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
       });
     } catch (e) {
       setStatus({ kind: 'error', text: (e as Error).message });
+    }
+  };
+
+  const describeMe = async () => {
+    setDescribing(true);
+    try {
+      const { text } = await api.describeMe();
+      // Never overwrite what you wrote yourself; add to it instead.
+      set('userDescription', form.userDescription.trim() ? `${form.userDescription.trim()}\n\n${text}` : text);
+      toast.success('Added a description from your picture');
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setDescribing(false);
     }
   };
 
@@ -443,6 +499,23 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
                 onChange={(e) => set('userDescription', e.target.value)}
               />
             </Field>
+
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={describeMe}
+                disabled={!canDescribe || describing}
+                title={describeBlockedBecause ?? undefined}
+              >
+                {describing || vision.checking ? <LoaderCircle className="animate-spin" /> : <ScanFace />}
+                Describe from my picture
+              </Button>
+              <span className="text-muted-foreground flex-1 text-xs">
+                {describeBlockedBecause ??
+                  'Sends your picture to the model and adds how you look to the text above. It is added underneath whatever you have written, never over it.'}
+              </span>
+            </div>
           </TabsContent>
 
           {/* How the chat itself looks. */}

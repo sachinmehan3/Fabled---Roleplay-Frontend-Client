@@ -7,6 +7,7 @@ import type {
   GenerationMeta,
   Message,
   Settings,
+  VisionCheck,
 } from './types.ts';
 
 async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
@@ -28,6 +29,8 @@ export const api = {
   testConnection: () => request<ConnectionTest>('POST', '/api/test'),
   uploadUserAvatar: (file: File) => request<Settings>('POST', '/api/user/avatar', file),
   removeUserAvatar: () => request<Settings>('DELETE', '/api/user/avatar'),
+  checkVision: () => request<VisionCheck>('GET', '/api/user/vision'),
+  describeMe: () => request<{ text: string }>('POST', '/api/user/describe'),
   uploadChatBackground: (file: File) => request<Settings>('POST', '/api/background', file),
   removeChatBackground: () => request<Settings>('DELETE', '/api/background'),
 

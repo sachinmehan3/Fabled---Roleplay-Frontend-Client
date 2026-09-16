@@ -28,6 +28,11 @@ export interface Chat {
   message_count?: number;
 }
 
+export interface VisionCheck {
+  vision: boolean;
+  reason?: string;
+}
+
 export interface ConnectionTest {
   model?: string;
   reply: string;
