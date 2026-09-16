@@ -193,6 +193,16 @@ export function ChatView({
           <div className="bg-background absolute inset-0" style={{ opacity: settings.chatBackgroundDim / 100 }} />
         </div>
       )}
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className={cn('text-muted-foreground absolute top-3 left-3 z-20', !sidebarCollapsed && 'md:hidden')}
+        onClick={onOpenSidebar}
+        aria-label="Open sidebar"
+      >
+        <PanelLeft />
+      </Button>
+
       {/* Messages */}
       <div
         ref={scrollRef}
@@ -202,7 +212,7 @@ export function ChatView({
           stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
         }}
       >
-        <div className="mx-auto w-full max-w-3xl px-4 pt-8 pb-6">
+        <div className="mx-auto w-full max-w-3xl px-4 pt-14 pb-6 md:pt-8">
           {card.scenario && (
             <div className="bg-muted/40 text-muted-foreground mb-4 rounded-xl border border-dashed px-4 py-3 text-sm">
               <span className="text-foreground mr-1.5 font-medium">Scenario</span>
@@ -269,17 +279,6 @@ export function ChatView({
             send();
           }}
         >
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className={cn('text-muted-foreground shrink-0', !sidebarCollapsed && 'md:hidden')}
-            onClick={onOpenSidebar}
-            aria-label="Open sidebar"
-          >
-            <PanelLeft />
-          </Button>
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
