@@ -10,25 +10,34 @@ import {
   deleteMessage,
   getCharacter,
   getChat,
+  getLoreState,
+  getLorebook,
   getMemory,
   getMessage,
   getRecord,
   getSettings,
+  deleteLorebook,
   insertChat,
   insertCharacter,
+  insertLorebook,
   insertMessage,
   listCharacters,
   listChats,
+  listLorebooks,
   listMessages,
+  saveLoreState,
   saveMemory,
   saveSettings,
   saveSwipes,
   updateCharacter,
+  updateLorebook,
   type CharacterRow,
   type GenerationMeta,
   type MessageRow,
 } from './store.ts';
 import { foldMemory } from './memory.ts';
+import { activateLore, EMPTY_ENTRY, type Lorebook } from './lorebook.ts';
+import { importLorebook } from './lorebook-import.ts';
 import './migrate-sqlite.ts'; // one-time import of an older data/rp.db, if one is there
 import { seedStarterCharacter } from './seed.ts';
 import { isPng, normalizeCard, parseCardFile, type CharacterCard } from './cards.ts';
@@ -374,6 +383,62 @@ route('POST', '/api/chats/:id/messages', async ({ params, json }) => {
   return messageOut(insertMessage(chat.id, 'user', [content]));
 });
 
+// ---------- lorebooks ----------
+
+const NEW_BOOK: Omit<Lorebook, 'id' | 'created_at'> = {
+  name: 'New lorebook',
+  enabled: true,
+  characterIds: [],
+  scanDepth: 4,
+  caseSensitive: false,
+  matchWholeWords: true,
+  maxRecursionSteps: 2,
+  budget: 1024,
+  entries: [],
+};
+
+function requireLorebook(bookId: number) {
+  const book = getLorebook(bookId);
+  if (!book) throw new HttpError(404, 'Lorebook not found');
+  return book;
+}
+
+route('GET', '/api/lorebooks', () => listLorebooks());
+
+route('POST', '/api/lorebooks', async ({ json }) => {
+  const { name } = await json<{ name?: string }>().catch(() => ({}) as { name?: string });
+  return insertLorebook({ ...NEW_BOOK, name: name?.trim() || NEW_BOOK.name });
+});
+
+route('GET', '/api/lorebooks/:id', ({ params }) => requireLorebook(id(params.id)));
+
+route('PUT', '/api/lorebooks/:id', async ({ params, json }) => {
+  const book = requireLorebook(id(params.id));
+  const patch = await json<Partial<Lorebook>>();
+  const entries = Array.isArray(patch.entries)
+    ? patch.entries.map((e, i) => ({ ...EMPTY_ENTRY, ...e, id: e.id || `e-${Date.now().toString(36)}-${i}` }))
+    : book.entries;
+  updateLorebook(book.id, { ...patch, id: undefined, created_at: undefined, entries } as Partial<Lorebook>);
+  return requireLorebook(book.id);
+});
+
+route('DELETE', '/api/lorebooks/:id', ({ params }) => {
+  deleteLorebook(requireLorebook(id(params.id)).id);
+  return { ok: true };
+});
+
+// Body: raw JSON bytes, ours or a SillyTavern World Info export.
+route('POST', '/api/lorebooks/import', async ({ body }) => {
+  const buf = await body();
+  let parsed;
+  try {
+    parsed = importLorebook(JSON.parse(buf.toString('utf8')), 'Imported lorebook');
+  } catch (e) {
+    throw new HttpError(400, `Could not read that lorebook: ${(e as Error).message}`);
+  }
+  return insertLorebook(parsed);
+});
+
 // ---------- chat memory ----------
 
 route('GET', '/api/chats/:id/memory', ({ params }) => getMemory(requireChat(id(params.id)).id));
@@ -454,7 +519,18 @@ route('POST', '/api/chats/:id/generate', async ({ params, json, res }) => {
   }
 
   const history = all.map((m) => ({ role: m.role, content: m.swipes[m.swipe_index] ?? '' }));
-  const built = buildPrompt(character.card, settings, history, getMemory(chat.id));
+
+  // Lorebooks look at the conversation and decide what the model needs to know.
+  const lore = activateLore({
+    books: listLorebooks(),
+    messages: history,
+    characterId: character.id,
+    state: getLoreState(chat.id),
+    estimateTokens,
+  });
+  saveLoreState(chat.id, lore.state); // sticky and cooldown are remembered per chat
+
+  const built = buildPrompt(character.card, settings, history, getMemory(chat.id), lore.entries);
   const { messages } = built;
 
   res.writeHead(200, {
@@ -515,6 +591,9 @@ route('POST', '/api/chats/:id/generate', async ({ params, json, res }) => {
     historySent: built.usedHistory,
     historyBudget: built.historyBudget,
     memoryTokens: built.memoryTokens,
+    loreTokens: built.loreTokens || undefined,
+    loreEntries: built.loreTitles.length || undefined,
+    loreTitles: built.loreTitles.length ? built.loreTitles : undefined,
     estimatedPromptTokens: built.estimatedTokens,
     finishReason: report.finishReason,
     usage: report.usage,

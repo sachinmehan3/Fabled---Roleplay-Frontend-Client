@@ -41,6 +41,53 @@ export interface ConnectionTest {
   ms: number;
 }
 
+export type EntryMode = 'constant' | 'selective';
+export type SecondaryLogic = 'and_any' | 'and_all' | 'not_any' | 'not_all';
+export type EntryPosition = 'before_char' | 'after_char' | 'at_depth';
+export type EntryRole = 'system' | 'user' | 'assistant';
+
+export interface LoreEntry {
+  id: string;
+  title: string;
+  content: string;
+  enabled: boolean;
+  mode: EntryMode;
+  keys: string[];
+  secondaryKeys: string[];
+  logic: SecondaryLogic;
+  position: EntryPosition;
+  depth: number;
+  role: EntryRole;
+  order: number;
+  caseSensitive: boolean | null;
+  matchWholeWords: boolean | null;
+  scanDepth: number | null;
+  probability: number;
+  group: string;
+  groupWeight: number;
+  prioritizeInclusion: boolean;
+  excludeRecursion: boolean;
+  preventRecursion: boolean;
+  delayUntilRecursion: boolean;
+  sticky: number;
+  cooldown: number;
+  delay: number;
+}
+
+export interface Lorebook {
+  id: number;
+  name: string;
+  enabled: boolean;
+  characterIds: number[];
+  scanDepth: number;
+  caseSensitive: boolean;
+  matchWholeWords: boolean;
+  maxRecursionSteps: number;
+  budget: number;
+  entries: LoreEntry[];
+  created_at: number;
+}
+
 export interface ChatMemory {
   version: 1;
   summary: string;
@@ -79,6 +126,9 @@ export interface GenerationMeta {
   thinkingLevel: ThinkingLevel;
   extrasDropped?: boolean;
   memoryTokens?: number;
+  loreTokens?: number;
+  loreEntries?: number;
+  loreTitles?: string[];
 
   prompt?: PromptMessage[];
   systemSource: 'card' | 'default';

@@ -5,6 +5,7 @@ import {
   MessageSquarePlus,
   MoonStar,
   Ellipsis,
+  BookOpen,
   LayoutGrid,
   PanelLeftClose,
   Pencil,
@@ -47,6 +48,7 @@ interface Props {
   onSelectChat: (id: number) => void;
   onDeleteChat: (id: number) => void;
   onOpenSettings: () => void;
+  onOpenLorebooks: () => void;
   /** Collapse the sidebar. Desktop only - on a phone it closes by tapping away. */
   onClose?: () => void;
 }
@@ -262,6 +264,14 @@ export function AppSidebar(p: Props) {
           <Settings2 />
           Settings
         </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={p.onOpenLorebooks} aria-label="Lorebooks">
+              <BookOpen />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Lorebooks</TooltipContent>
+        </Tooltip>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" aria-label="Change theme">

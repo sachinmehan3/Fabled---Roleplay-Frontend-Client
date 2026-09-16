@@ -8,6 +8,7 @@ import { AppSidebar } from '@/components/app-sidebar';
 import { ChatView } from '@/components/chat-view';
 import { CharacterDialog } from '@/components/character-dialog';
 import { CharacterGallery } from '@/components/character-gallery';
+import { LorebookDialog } from '@/components/lorebook-dialog';
 import { EmptyState } from '@/components/empty-state';
 import { SettingsDialog, type SettingsTab } from '@/components/settings-dialog';
 
@@ -33,6 +34,7 @@ export function App() {
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('connection');
   const [editorOpen, setEditorOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [lorebooksOpen, setLorebooksOpen] = useState(false);
   const [editing, setEditing] = useState<Character | null>(null); // null = creating a new card
   const [sidebarOpen, setSidebarOpen] = useState(false); // mobile slide-over
   const [railOpen, setRailOpen] = useState(() => {
@@ -203,6 +205,10 @@ export function App() {
     },
     onDeleteChat: run(deleteChat),
     onOpenSettings: () => openSettings('connection'),
+    onOpenLorebooks: () => {
+      setLorebooksOpen(true);
+      setSidebarOpen(false);
+    },
   };
 
   return (
@@ -277,6 +283,8 @@ export function App() {
           />
         )}
       </main>
+
+      <LorebookDialog open={lorebooksOpen} onOpenChange={setLorebooksOpen} characters={characters} />
 
       <CharacterGallery
         open={galleryOpen}

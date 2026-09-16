@@ -2,6 +2,7 @@
 // trimming the oldest history so everything fits in the context window.
 import type { CharacterCard } from './cards.ts';
 import type { ChatMemory, Settings } from './store.ts';
+import type { ActivatedEntry } from './lorebook.ts';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -29,6 +30,9 @@ export interface BuiltPrompt {
   estimatedTokens: number;
   /** Context spent on the remembered summary. */
   memoryTokens: number;
+  /** Context spent on lorebook entries, and which ones they were. */
+  loreTokens: number;
+  loreTitles: string[];
   /** Tokens that were left for chat history after the fixed parts were counted. */
   historyBudget: number;
   /** Whether the system prompt came from the card or from Settings. */
@@ -61,6 +65,7 @@ export function buildPrompt(
   settings: Settings,
   history: { role: 'user' | 'assistant'; content: string }[],
   memory?: ChatMemory,
+  lore: ActivatedEntry[] = [],
 ): BuiltPrompt {
   const m = (t: string) => applyMacros(t, card.name, settings.userName).trim();
 
@@ -69,8 +74,14 @@ export function buildPrompt(
     ? card.system_prompt.replace(/\{\{original\}\}/gi, settings.systemPrompt)
     : settings.systemPrompt;
 
+  // Lorebook entries sit around the character block, in insertion order.
+  const loreAt = (position: 'before_char' | 'after_char') =>
+    lore.filter((l) => l.entry.position === position).map((l) => m(l.entry.content));
+  const atDepth = lore.filter((l) => l.entry.position === 'at_depth');
+
   const sections = [
     m(baseSystem),
+    ...loreAt('before_char'),
     card.description && `<character name="${card.name}">\n${m(card.description)}\n</character>`,
     card.personality && `${card.name}'s personality: ${m(card.personality)}`,
     // The user card (Settings -> User) describes who {{user}} is in the scene.
@@ -78,6 +89,7 @@ export function buildPrompt(
       `<user name="${settings.userName}">\n${m(settings.userDescription)}\n</user>`,
     card.scenario && `Scenario: ${m(card.scenario)}`,
     card.mes_example && `Example dialogue (style reference only):\n${m(card.mes_example.replace(/<START>/gi, '---'))}`,
+    ...loreAt('after_char'),
   ].filter(Boolean);
 
   const system: ChatMessage = { role: 'system', content: sections.join('\n\n') };
@@ -91,13 +103,16 @@ export function buildPrompt(
   const memoryMessage: ChatMessage | null = remembered ? { role: 'system', content: remembered } : null;
   const memoryTokens = memoryMessage ? estimateTokens(memoryMessage.content) : 0;
 
+  // Entries placed at a depth are messages of their own, so they cost separately.
+  const depthMessages: ChatMessage[] = atDepth.map((l) => ({ role: l.entry.role, content: m(l.entry.content) }));
   // Budget for history = context - reply - fixed parts - memory.
   const historyBudget =
     settings.contextSize -
     settings.maxTokens -
     estimateTokens(system.content) -
     (postHistory ? estimateTokens(postHistory.content) : 0) -
-    memoryTokens;
+    memoryTokens -
+    depthMessages.reduce((n, x) => n + estimateTokens(x.content), 0);
   let budget = historyBudget;
 
   // Walk backwards from the newest message, keeping as many as fit.
@@ -110,13 +125,27 @@ export function buildPrompt(
     kept.unshift(msg);
   }
 
-  const messages = [system, ...(memoryMessage ? [memoryMessage] : []), ...kept, ...(postHistory ? [postHistory] : [])];
+  // Depth counts back from the newest message: depth 0 is after everything.
+  const withDepth = [...kept];
+  for (const l of atDepth) {
+    const at = Math.max(0, withDepth.length - Math.max(0, l.entry.depth));
+    withDepth.splice(at, 0, { role: l.entry.role, content: m(l.entry.content) });
+  }
+
+  const messages = [
+    system,
+    ...(memoryMessage ? [memoryMessage] : []),
+    ...withDepth,
+    ...(postHistory ? [postHistory] : []),
+  ];
   const estimatedTokens = messages.reduce((n, x) => n + estimateTokens(x.content), 0);
   return {
     messages,
     usedHistory: kept.length,
     estimatedTokens,
     memoryTokens,
+    loreTokens: lore.reduce((n, l) => n + estimateTokens(l.entry.content), 0),
+    loreTitles: lore.map((l) => l.entry.title || l.entry.keys[0] || 'untitled'),
     historyBudget,
     systemSource: card.system_prompt ? 'card' : 'default',
     usedOriginalMacro: /\{\{original\}\}/i.test(card.system_prompt),

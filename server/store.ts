@@ -13,6 +13,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { CharacterCard } from './cards.ts';
+import type { Lorebook, LoreState } from './lorebook.ts';
 
 export const DATA_DIR = path.resolve(process.env.RP_DATA_DIR ?? 'data');
 export const AVATAR_DIR = path.join(DATA_DIR, 'avatars');
@@ -26,6 +27,8 @@ const CHATS_FILE = path.join(DATA_DIR, 'chats.json');
 const COUNTERS_FILE = path.join(DATA_DIR, 'counters.json');
 const chatFile = (chatId: number) => path.join(CHAT_DIR, `${chatId}.jsonl`);
 const memoryFile = (chatId: number) => path.join(CHAT_DIR, `${chatId}.memory.json`);
+const loreFile = (chatId: number) => path.join(CHAT_DIR, `${chatId}.lore.json`);
+const LOREBOOKS_FILE = path.join(DATA_DIR, 'lorebooks.json');
 const promptFile = (chatId: number) => path.join(CHAT_DIR, `${chatId}.prompts.jsonl`);
 
 // ---------- file helpers ----------
@@ -85,10 +88,11 @@ interface Counters {
   character: number;
   chat: number;
   message: number;
+  lorebook: number;
 }
 
 function nextId(kind: keyof Counters): number {
-  const c = readJson<Counters>(COUNTERS_FILE, { character: 0, chat: 0, message: 0 });
+  const c = readJson<Counters>(COUNTERS_FILE, { character: 0, chat: 0, message: 0, lorebook: 0 });
   const id = (c[kind] ?? 0) + 1;
   writeJson(COUNTERS_FILE, { ...c, [kind]: id });
   return id;
@@ -243,6 +247,7 @@ export function deleteChat(id: number) {
   fs.rmSync(chatFile(id), { force: true });
   fs.rmSync(promptFile(id), { force: true });
   fs.rmSync(memoryFile(id), { force: true });
+  fs.rmSync(loreFile(id), { force: true });
 }
 
 // ---------- chat memory ----------
@@ -278,6 +283,48 @@ export function saveMemory(chatId: number, memory: ChatMemory) {
 export function clearMemory(chatId: number): ChatMemory {
   saveMemory(chatId, EMPTY_MEMORY);
   return getMemory(chatId);
+}
+
+// ---------- lorebooks ----------
+
+const allLorebooks = () => readJson<Lorebook[]>(LOREBOOKS_FILE, []);
+const saveLorebooks = (rows: Lorebook[]) => writeJson(LOREBOOKS_FILE, rows);
+
+export function listLorebooks(): Lorebook[] {
+  return allLorebooks().sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+}
+
+export function getLorebook(id: number): Lorebook | undefined {
+  return allLorebooks().find((b) => b.id === id);
+}
+
+export function insertLorebook(book: Omit<Lorebook, 'id' | 'created_at'>): Lorebook {
+  const row: Lorebook = { ...book, id: nextId('lorebook'), created_at: Date.now() };
+  saveLorebooks([...allLorebooks(), row]);
+  return row;
+}
+
+export function updateLorebook(id: number, patch: Partial<Omit<Lorebook, 'id'>>): Lorebook | undefined {
+  const rows = allLorebooks();
+  const row = rows.find((b) => b.id === id);
+  if (!row) return undefined;
+  Object.assign(row, patch);
+  saveLorebooks(rows);
+  return row;
+}
+
+export function deleteLorebook(id: number) {
+  saveLorebooks(allLorebooks().filter((b) => b.id !== id));
+}
+
+/** Timed lorebook state for one chat: which entries are sticky or cooling down. */
+export function getLoreState(chatId: number): LoreState {
+  const saved = readJson<LoreState>(loreFile(chatId), {});
+  return saved && typeof saved === 'object' ? saved : {};
+}
+
+export function saveLoreState(chatId: number, state: LoreState) {
+  writeJson(loreFile(chatId), state);
 }
 
 function bumpCount(chatId: number, delta: number) {
@@ -319,6 +366,10 @@ export interface GenerationMeta {
   /** The provider refused the optional fields, so they were sent without them. */
   extrasDropped?: boolean;
   memoryTokens?: number;
+  loreTokens?: number;
+  loreEntries?: number;
+  /** Titles of the entries that made it in, for the details panel. */
+  loreTitles?: string[];
 
   // Bulky fields: these live in <chat>.prompts.jsonl, not in the chat log.
   prompt?: PromptMessage[];

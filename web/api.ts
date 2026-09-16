@@ -5,6 +5,7 @@ import type {
   ChatMemory,
   ConnectionTest,
   GenerationMeta,
+  Lorebook,
   Message,
   Settings,
   VisionCheck,
@@ -45,6 +46,13 @@ export const api = {
   listChats: (charId: number) => request<Chat[]>('GET', `/api/characters/${charId}/chats`),
   createChat: (charId: number) => request<Chat>('POST', `/api/characters/${charId}/chats`),
   deleteChat: (id: number) => request('DELETE', `/api/chats/${id}`),
+
+  listLorebooks: () => request<Lorebook[]>('GET', '/api/lorebooks'),
+  createLorebook: (name?: string) => request<Lorebook>('POST', '/api/lorebooks', { name }),
+  saveLorebook: (id: number, patch: Partial<Omit<Lorebook, 'id'>>) =>
+    request<Lorebook>('PUT', `/api/lorebooks/${id}`, patch),
+  deleteLorebook: (id: number) => request('DELETE', `/api/lorebooks/${id}`),
+  importLorebook: (file: File) => request<Lorebook>('POST', '/api/lorebooks/import', file),
 
   getMemory: (chatId: number) => request<ChatMemory>('GET', `/api/chats/${chatId}/memory`),
   saveMemory: (chatId: number, patch: { summary: string }) =>

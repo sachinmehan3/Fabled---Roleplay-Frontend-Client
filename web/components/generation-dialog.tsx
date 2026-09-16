@@ -232,6 +232,11 @@ export function GenerationDialog({ open, onOpenChange, messageId, swipeIndex, sw
                   sub={meta.memoryTokens ? 'summary of older messages' : undefined}
                 />
                 <Stat
+                  label="Lorebook"
+                  value={meta.loreEntries ? `${meta.loreEntries} entries, ${num(meta.loreTokens ?? 0)} tokens` : 'nothing matched'}
+                  sub={meta.loreTitles?.length ? meta.loreTitles.join(', ') : undefined}
+                />
+                <Stat
                   label="Thinking"
                   value={meta.thinkingLevel === 'default' ? 'provider default' : meta.thinkingLevel}
                   sub={meta.extrasDropped ? 'the provider refused the option and it was sent without it' : undefined}
