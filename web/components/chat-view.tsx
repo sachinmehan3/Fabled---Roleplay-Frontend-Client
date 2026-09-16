@@ -348,6 +348,33 @@ export function ChatView({
       )}
 
       <ProfileDialog
+        open={profile === 'character'}
+        onOpenChange={(o) => setProfile(o ? 'character' : null)}
+        name={character.name}
+        avatar={character.avatar}
+        subtitle={card.creator ? `Character card by ${card.creator}` : 'Character card'}
+        tags={card.tags}
+        fields={[
+          { label: 'Description', text: macros(card.description) },
+          { label: 'Personality', text: macros(card.personality) },
+          { label: 'Scenario', text: macros(card.scenario) },
+          { label: 'First message', text: macros(card.first_mes) },
+          { label: 'Creator notes', text: card.creator_notes },
+        ]}
+        editLabel="Edit character"
+        onEdit={() => {
+          setProfile(null);
+          onEditCharacter();
+        }}
+      />
+
+      <MemoryDialog open={memoryOpen} onOpenChange={setMemoryOpen} chatId={chatId} characterName={character.name} />
+
+      {details && (
+        <GenerationDialog open onOpenChange={(o) => !o && setDetails(null)} {...details} />
+      )}
+
+      <ProfileDialog
         open={profile === 'user'}
         onOpenChange={(o) => setProfile(o ? 'user' : null)}
         name={settings.userName}
