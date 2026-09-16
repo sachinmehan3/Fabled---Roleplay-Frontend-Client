@@ -11,11 +11,12 @@ import {
   PanelLeftClose,
   Pencil,
   Plus,
-  Search,
   Settings2,
+  SquarePen,
   Sun,
   Trash2,
   Upload,
+  type LucideIcon,
 } from 'lucide-react';
 import type { Character, Chat } from '@/types';
 import { cn } from '@/lib/utils';
@@ -23,7 +24,6 @@ import { THEMES, useTheme } from '@/hooks/use-theme';
 import { SETTINGS_TABS, type SettingsTab } from '@/components/settings-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
@@ -56,7 +56,7 @@ interface Props {
   onClose?: () => void;
 }
 
-const EM_DASH = '""" + chr(8212) + """';
+const EM_DASH = '—';
 
 function formatDate(ts: number) {
   const d = new Date(ts);
@@ -68,10 +68,24 @@ function formatDate(ts: number) {
 
 function SectionLabel({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex h-8 items-center justify-between px-2">
-      <span className="text-muted-foreground text-xs font-medium">{children}</span>
+    <div className="mt-3 flex h-7 items-center justify-between gap-2 px-2">
+      <span className="text-muted-foreground truncate text-xs font-medium">{children}</span>
       {action}
     </div>
+  );
+}
+
+/** A quiet, full-width row: the way the top of the sidebar reads in most chat apps. */
+function NavItem({ icon: Icon, onClick, children }: { icon: LucideIcon; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="hover:bg-sidebar-accent focus-visible:ring-ring/50 flex h-9 w-full items-center gap-2.5 rounded-lg px-2 text-sm outline-none focus-visible:ring-[3px]"
+    >
+      <Icon className="text-muted-foreground size-4 shrink-0" />
+      {children}
+    </button>
   );
 }
 
@@ -82,28 +96,23 @@ export function AppSidebar(p: Props) {
     dark: <MoonStar />,
     light: <Sun />,
   };
-  const [query, setQuery] = useState('');
   const [renaming, setRenaming] = useState<number | null>(null);
   const [draft, setDraft] = useState('');
-  const filtered = p.characters.filter((c) => c.name.toLowerCase().includes(query.trim().toLowerCase()));
   const selected = p.characters.find((c) => c.id === p.selectedCharacterId);
 
   return (
     <aside className={cn('bg-sidebar text-sidebar-foreground border-sidebar-border flex h-full w-72 flex-col border-r', p.className)}>
       {/* Brand */}
-      <div className="flex h-14 items-center gap-2.5 px-4">
-        <img src="/fabled-icon.svg" alt="" className="size-8 shrink-0" />
-        <div className="min-w-0 flex-1 leading-tight">
-          <div className="text-[15px] font-semibold tracking-tight">Fabled</div>
-          <div className="text-muted-foreground text-xs">Roleplay chat</div>
-        </div>
+      <div className="flex h-14 items-center gap-2 px-4">
+        <img src="/fabled-icon-transparent.svg" alt="" className="size-5 shrink-0" />
+        <span className="flex-1 text-[15px] font-semibold tracking-tight">Fabled</span>
         {p.onClose && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon-sm"
-                className="-mr-1 hidden md:inline-flex"
+                className="text-muted-foreground -mr-1.5 hidden md:inline-flex"
                 aria-label="Close sidebar"
                 onClick={p.onClose}
               >
@@ -115,69 +124,43 @@ export function AppSidebar(p: Props) {
         )}
       </div>
 
-      <div className="space-y-2 px-3 pb-2">
-        <div className="flex gap-2">
-          <Button className="flex-1 justify-start" onClick={p.onCreateCharacter}>
-            <Plus />
-            New character
-          </Button>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="icon" aria-label="Import character card" onClick={p.onImport}>
-                <Upload />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Import a card file or a Chub link</TooltipContent>
-          </Tooltip>
-        </div>
-        <div className="relative">
-          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search characters"
-            aria-label="Search characters"
-            className="bg-background h-8 pl-8"
-          />
-        </div>
-      </div>
+      <nav className="space-y-0.5 px-2 pb-2">
+        <NavItem icon={SquarePen} onClick={p.onCreateCharacter}>
+          New character
+        </NavItem>
+        <NavItem icon={Upload} onClick={p.onImport}>
+          Import character
+        </NavItem>
+        <NavItem icon={LayoutGrid} onClick={p.onBrowseCharacters}>
+          All characters
+        </NavItem>
+      </nav>
 
-      <div className="flex-1 overflow-y-auto px-3 pb-3">
-        <button
-          type="button"
-          onClick={p.onBrowseCharacters}
-          className="text-muted-foreground hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-ring/50 flex h-8 w-full items-center justify-between rounded-md px-2 text-xs font-medium outline-none focus-visible:ring-[3px]"
-        >
-          <span className="flex items-center gap-1.5">
-            Characters
-            <LayoutGrid className="size-3.5" />
-          </span>
-          <span className="tabular-nums">{p.characters.length}</span>
-        </button>
+      <div className="flex-1 overflow-y-auto px-2 pb-3">
+        <SectionLabel>Characters</SectionLabel>
         {p.characters.length === 0 ? (
           <p className="text-muted-foreground px-2 py-3 text-sm">No characters yet.</p>
-        ) : filtered.length === 0 ? (
-          <p className="text-muted-foreground px-2 py-3 text-sm">No matches.</p>
         ) : (
           <ul className="space-y-0.5">
-            {filtered.map((c) => {
+            {p.characters.map((c) => {
               const active = c.id === p.selectedCharacterId;
-              const subtitle = c.card.tags.slice(0, 3).join(' · ') || (c.card.creator && `by ${c.card.creator}`) || 'Character';
               return (
                 <li key={c.id} className="group/item relative">
                   <button
                     onClick={() => p.onSelectCharacter(c.id)}
                     aria-current={active || undefined}
                     className={cn(
-                      'hover:bg-sidebar-accent focus-visible:ring-ring/50 flex w-full items-center gap-3 rounded-lg px-2 py-1.5 pr-9 text-left outline-none focus-visible:ring-[3px]',
-                      active && 'bg-sidebar-accent',
+                      'hover:bg-sidebar-accent focus-visible:ring-ring/50 flex h-9 w-full items-center gap-2.5 rounded-lg px-2 pr-9 text-left text-sm outline-none focus-visible:ring-[3px]',
+                      active && 'bg-sidebar-accent font-medium',
                     )}
                   >
-                    <CharacterAvatar name={c.name} file={c.avatar} className="size-8" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">{c.name}</span>
-                      <span className="text-muted-foreground block truncate text-xs">{subtitle}</span>
-                    </span>
+                    <CharacterAvatar
+                      name={c.name}
+                      file={c.avatar}
+                      className="size-6 rounded-md"
+                      fallbackClassName="text-[10px]"
+                    />
+                    <span className="min-w-0 flex-1 truncate">{c.name}</span>
                   </button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -214,7 +197,6 @@ export function AppSidebar(p: Props) {
 
         {selected && (
           <>
-            <Separator className="my-3" />
             <SectionLabel
               action={
                 <Tooltip>
@@ -274,7 +256,7 @@ export function AppSidebar(p: Props) {
                           aria-current={active || undefined}
                           title={active ? 'Click again to rename' : undefined}
                           className={cn(
-                            'hover:bg-sidebar-accent focus-visible:ring-ring/50 flex w-full items-center gap-2.5 rounded-lg px-2 py-2 pr-16 text-left text-sm outline-none focus-visible:ring-[3px]',
+                            'hover:bg-sidebar-accent focus-visible:ring-ring/50 flex h-9 w-full items-center gap-2.5 rounded-lg px-2 pr-16 text-left text-sm outline-none focus-visible:ring-[3px]',
                             active && 'bg-sidebar-accent font-medium',
                           )}
                         >
