@@ -35,42 +35,50 @@ export function ProfileDialog({ open, onOpenChange, name, avatar, subtitle, tags
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] gap-0 overflow-hidden p-0 sm:max-w-lg">
-        <div className="flex flex-col items-center gap-3 px-6 pt-8 pb-5">
-          {url ? (
-            <img src={url} alt={name} className="max-h-72 w-auto max-w-full rounded-xl border object-contain shadow-sm" />
-          ) : (
-            <CharacterAvatar name={name} className="size-24 rounded-xl" fallbackClassName="text-2xl" />
-          )}
-          <DialogHeader className="items-center gap-1 text-center">
-            <DialogTitle className="text-xl">{name}</DialogTitle>
-            <DialogDescription>{subtitle || 'No description yet.'}</DialogDescription>
-          </DialogHeader>
-          {!!tags?.length && (
-            <div className="flex flex-wrap justify-center gap-1.5">
-              {tags.map((t) => (
-                <Badge key={t} variant="secondary" className="font-normal">
-                  {t}
-                </Badge>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="max-h-[45vh] space-y-4 overflow-y-auto border-t px-6 py-5">
-          {filled.length === 0 ? (
-            <p className="text-muted-foreground text-sm">This card has no details filled in yet.</p>
-          ) : (
-            filled.map((f) => (
-              <div key={f.label} className="grid gap-1">
-                <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">{f.label}</div>
-                <p className="text-sm whitespace-pre-wrap">{f.text}</p>
+      {/* A column, not a grid: the portrait and the card text share one scroll
+          region, so a tall picture pushes the text down rather than off the end. */}
+      <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="flex flex-col items-center gap-3 px-6 pt-8 pb-5">
+            {url ? (
+              <img
+                src={url}
+                alt={name}
+                className="max-h-[45vh] w-auto max-w-full rounded-xl border object-contain shadow-sm"
+              />
+            ) : (
+              <CharacterAvatar name={name} className="size-24 rounded-xl" fallbackClassName="text-2xl" />
+            )}
+            <DialogHeader className="items-center gap-1 text-center">
+              <DialogTitle className="text-xl">{name}</DialogTitle>
+              <DialogDescription>{subtitle || 'No description yet.'}</DialogDescription>
+            </DialogHeader>
+            {!!tags?.length && (
+              <div className="flex flex-wrap justify-center gap-1.5">
+                {tags.map((t) => (
+                  <Badge key={t} variant="secondary" className="font-normal">
+                    {t}
+                  </Badge>
+                ))}
               </div>
-            ))
-          )}
+            )}
+          </div>
+
+          <div className="space-y-4 border-t px-6 py-5">
+            {filled.length === 0 ? (
+              <p className="text-muted-foreground text-sm">This card has no details filled in yet.</p>
+            ) : (
+              filled.map((f) => (
+                <div key={f.label} className="grid gap-1">
+                  <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">{f.label}</div>
+                  <p className="text-sm whitespace-pre-wrap">{f.text}</p>
+                </div>
+              ))
+            )}
+          </div>
         </div>
 
-        <DialogFooter className="border-t px-6 py-4">
+        <DialogFooter className="shrink-0 border-t px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
