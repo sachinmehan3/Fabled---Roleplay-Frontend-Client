@@ -25,9 +25,7 @@ import {
   saveSwipes,
   updateCharacter,
   type CharacterRow,
-  type ChatMemory,
   type GenerationMeta,
-  type MemoryFact,
   type MessageRow,
 } from './store.ts';
 import { foldMemory } from './memory.ts';
@@ -320,26 +318,12 @@ route('POST', '/api/chats/:id/messages', async ({ params, json }) => {
 
 route('GET', '/api/chats/:id/memory', ({ params }) => getMemory(requireChat(id(params.id)).id));
 
-// Body: { summary?, facts? } - what the memory panel saves after an edit.
+// Body: { summary } - what the memory panel saves after an edit.
 route('PUT', '/api/chats/:id/memory', async ({ params, json }) => {
   const chat = requireChat(id(params.id));
-  const patch = await json<{ summary?: string; facts?: MemoryFact[] }>();
+  const { summary } = await json<{ summary?: string }>();
   const current = getMemory(chat.id);
-  const next: ChatMemory = {
-    ...current,
-    summary: typeof patch.summary === 'string' ? patch.summary : current.summary,
-    facts: Array.isArray(patch.facts)
-      ? patch.facts
-          .filter((f) => f && typeof f.text === 'string' && f.text.trim())
-          .map((f, i) => ({
-            id: typeof f.id === 'string' && f.id ? f.id : `edit-${Date.now().toString(36)}-${i}`,
-            text: f.text.trim(),
-            pinned: Boolean(f.pinned),
-            createdAt: typeof f.createdAt === 'number' ? f.createdAt : Date.now(),
-          }))
-      : current.facts,
-  };
-  saveMemory(chat.id, next);
+  saveMemory(chat.id, { ...current, summary: typeof summary === 'string' ? summary : current.summary });
   return getMemory(chat.id);
 });
 
@@ -465,7 +449,6 @@ route('POST', '/api/chats/:id/generate', async ({ params, json, res }) => {
     historySent: built.usedHistory,
     historyBudget: built.historyBudget,
     memoryTokens: built.memoryTokens,
-    memoryFacts: built.memoryFacts,
     estimatedPromptTokens: built.estimatedTokens,
     finishReason: report.finishReason,
     usage: report.usage,

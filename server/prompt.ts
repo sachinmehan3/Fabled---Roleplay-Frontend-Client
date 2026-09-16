@@ -27,9 +27,8 @@ export interface BuiltPrompt {
   messages: ChatMessage[];
   usedHistory: number;
   estimatedTokens: number;
-  /** Context spent on remembered summary and facts. */
+  /** Context spent on the remembered summary. */
   memoryTokens: number;
-  memoryFacts: number;
   /** Tokens that were left for chat history after the fixed parts were counted. */
   historyBudget: number;
   /** Whether the system prompt came from the card or from Settings. */
@@ -42,39 +41,19 @@ export interface BuiltPrompt {
 function memoryBlock(memory: ChatMemory | undefined, budget: number, m: (t: string) => string): string | null {
   if (!memory || budget <= 0) return null;
   const summary = memory.summary.trim();
-  const facts = memory.facts.map((f) => f.text.trim()).filter(Boolean);
-  if (!summary && !facts.length) return null;
+  if (!summary) return null;
 
   // Measure the finished block, wrapper included, or it can overrun the budget.
-  const wrap = (text: string) => (text.trim() ? `<memory>\n${text.trim()}\n</memory>` : '');
-  const render = (list: string[]) =>
-    wrap(
-      m(
-        [
-          'Earlier in this story, before the messages below:',
-          summary,
-          list.length ? `Established facts:\n${list.map((f) => `- ${f}`).join('\n')}` : '',
-        ]
-          .filter(Boolean)
-          .join('\n\n'),
-      ),
-    );
+  const wrap = (text: string) =>
+    text.trim() ? `<memory>\nEarlier in this story, before the messages below:\n\n${text.trim()}\n</memory>` : '';
 
-  // Facts go first, oldest before newest, until the block fits.
-  let kept = facts;
-  let block = render(kept);
-  while (kept.length && estimateTokens(block) > budget) {
-    kept = kept.slice(1);
-    block = render(kept);
+  // Too long for its budget: shave the oldest end until the finished block fits,
+  // measuring as we go rather than guessing at what the wrapper costs.
+  let text = m(summary);
+  while (text && estimateTokens(wrap(text)) > budget) {
+    text = text.slice(Math.max(1, Math.ceil(text.length * 0.1)));
   }
-
-  // A summary alone can still overrun; send its tail rather than nothing at all.
-  if (estimateTokens(block) > budget) {
-    const room = Math.floor(Math.max(0, budget - 12) * 3.5);
-    block = wrap(m(summary).slice(-room));
-    if (!room || estimateTokens(block) > budget) return null; // too little room to say anything
-  }
-  return block || null;
+  return text ? wrap(text) : null; // no room to say anything at all
 }
 
 export function buildPrompt(
@@ -138,7 +117,6 @@ export function buildPrompt(
     usedHistory: kept.length,
     estimatedTokens,
     memoryTokens,
-    memoryFacts: memory?.facts.length ?? 0,
     historyBudget,
     systemSource: card.system_prompt ? 'card' : 'default',
     usedOriginalMacro: /\{\{original\}\}/i.test(card.system_prompt),

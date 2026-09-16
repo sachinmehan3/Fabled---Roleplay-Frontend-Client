@@ -5,7 +5,6 @@ import type {
   ChatMemory,
   ConnectionTest,
   GenerationMeta,
-  MemoryFact,
   Message,
   Settings,
 } from './types.ts';
@@ -45,7 +44,7 @@ export const api = {
   deleteChat: (id: number) => request('DELETE', `/api/chats/${id}`),
 
   getMemory: (chatId: number) => request<ChatMemory>('GET', `/api/chats/${chatId}/memory`),
-  saveMemory: (chatId: number, patch: { summary?: string; facts?: MemoryFact[] }) =>
+  saveMemory: (chatId: number, patch: { summary: string }) =>
     request<ChatMemory>('PUT', `/api/chats/${chatId}/memory`, patch),
   foldMemory: (chatId: number) => request<ChatMemory>('POST', `/api/chats/${chatId}/memory/fold`),
   clearMemory: (chatId: number) => request<ChatMemory>('DELETE', `/api/chats/${chatId}/memory`),

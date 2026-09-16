@@ -247,41 +247,27 @@ export function deleteChat(id: number) {
 
 // ---------- chat memory ----------
 
-export interface MemoryFact {
-  id: string;
-  text: string;
-  /** Pinned facts are never dropped to make room, and survive a clear. */
-  pinned?: boolean;
-  createdAt: number;
-}
-
 /** What a chat remembers once its older messages have left the context window. */
 export interface ChatMemory {
   version: 1;
   summary: string;
-  facts: MemoryFact[];
   /** Memory covers every message up to and including this id. */
   coveredThrough: number;
   folds: number;
   updatedAt: number;
 }
 
-export const EMPTY_MEMORY: ChatMemory = {
-  version: 1,
-  summary: '',
-  facts: [],
-  coveredThrough: 0,
-  folds: 0,
-  updatedAt: 0,
-};
+export const EMPTY_MEMORY: ChatMemory = { version: 1, summary: '', coveredThrough: 0, folds: 0, updatedAt: 0 };
 
+/** Built field by field, so anything stale in an older file is dropped on the next save. */
 export function getMemory(chatId: number): ChatMemory {
   const saved = readJson<Partial<ChatMemory>>(memoryFile(chatId), {});
   return {
-    ...EMPTY_MEMORY,
-    ...saved,
+    version: 1,
     summary: typeof saved.summary === 'string' ? saved.summary : '',
-    facts: Array.isArray(saved.facts) ? saved.facts.filter((f) => f && typeof f.text === 'string') : [],
+    coveredThrough: typeof saved.coveredThrough === 'number' ? saved.coveredThrough : 0,
+    folds: typeof saved.folds === 'number' ? saved.folds : 0,
+    updatedAt: typeof saved.updatedAt === 'number' ? saved.updatedAt : 0,
   };
 }
 
@@ -290,10 +276,7 @@ export function saveMemory(chatId: number, memory: ChatMemory) {
 }
 
 export function clearMemory(chatId: number): ChatMemory {
-  // Pinned facts are the ones a person put there by hand, so they stay.
-  const kept = getMemory(chatId).facts.filter((f) => f.pinned);
-  const cleared: ChatMemory = { ...EMPTY_MEMORY, facts: kept };
-  saveMemory(chatId, cleared);
+  saveMemory(chatId, EMPTY_MEMORY);
   return getMemory(chatId);
 }
 
@@ -336,7 +319,6 @@ export interface GenerationMeta {
   /** The provider refused the optional fields, so they were sent without them. */
   extrasDropped?: boolean;
   memoryTokens?: number;
-  memoryFacts?: number;
 
   // Prompt. The messages themselves live in <chat>.prompts.jsonl.
   prompt?: PromptMessage[];

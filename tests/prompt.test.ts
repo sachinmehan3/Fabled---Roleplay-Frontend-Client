@@ -138,10 +138,6 @@ test('a system prompt larger than the window keeps no history instead of crashin
 const memory = (over: Partial<import('../server/store.ts').ChatMemory> = {}) => ({
   version: 1 as const,
   summary: 'Kai admitted forging the eastern coastline map.',
-  facts: [
-    { id: 'a', text: "Kai's left arm is broken", createdAt: 1 },
-    { id: 'b', text: 'They are travelling to Vey', createdAt: 2 },
-  ],
   coveredThrough: 10,
   folds: 1,
   updatedAt: 0,
@@ -149,12 +145,10 @@ const memory = (over: Partial<import('../server/store.ts').ChatMemory> = {}) => 
 });
 
 test('memory is sent as its own block, after the character and before the history', () => {
-  const { messages, memoryTokens, memoryFacts } = buildPrompt(card(), settings(), history(2), memory());
+  const { messages, memoryTokens } = buildPrompt(card(), settings(), history(2), memory());
   assert.equal(messages[1].role, 'system');
   assert.match(messages[1].content, /<memory>[\s\S]*forging the eastern coastline[\s\S]*<\/memory>/);
-  assert.match(messages[1].content, /- Kai's left arm is broken/);
   assert.ok(memoryTokens > 0);
-  assert.equal(memoryFacts, 2);
   assert.ok(messages[2].content.startsWith('message number 0.'), 'history follows the memory block');
 });
 
@@ -173,22 +167,25 @@ test('memory is left out entirely when the budget is zero', () => {
 });
 
 test('empty memory sends no block', () => {
-  const { messages, memoryTokens } = buildPrompt(card(), settings(), history(2), memory({ summary: '', facts: [] }));
+  const { messages, memoryTokens } = buildPrompt(card(), settings(), history(2), memory({ summary: '' }));
   assert.equal(memoryTokens, 0);
   assert.ok(!messages.some((m) => m.content.includes('<memory>')));
 });
 
-test('a memory larger than its budget drops facts rather than overrunning', () => {
-  const many = Array.from({ length: 60 }, (_, i) => ({
-    id: String(i),
-    text: `fact number ${i} with some padding words to take up room`,
-    createdAt: i,
-  }));
-  const { messages, memoryTokens } = buildPrompt(card(), settings({ memoryTokens: 120 }), [], memory({ facts: many }));
+test('a summary larger than its budget is trimmed to fit rather than dropped', () => {
+  const long = Array.from({ length: 200 }, (_, i) => `Sentence number ${i} about the map.`).join(' ');
+  const { messages, memoryTokens } = buildPrompt(card(), settings({ memoryTokens: 120 }), [], memory({ summary: long }));
 
+  assert.ok(memoryTokens > 0, 'something is still remembered');
   assert.ok(memoryTokens <= 120, `memory used ${memoryTokens} of a 120 budget`);
   const block = messages.find((m) => m.content.includes('<memory>'))!;
-  assert.ok(block.content.includes('fact number 59'), 'the newest facts are the ones kept');
+  assert.ok(block.content.includes('Sentence number 199'), 'the most recent part is the part kept');
+});
+
+test('a budget too small for any block sends none', () => {
+  const { messages, memoryTokens } = buildPrompt(card(), settings({ memoryTokens: 8 }), [], memory());
+  assert.equal(memoryTokens, 0);
+  assert.ok(!messages.some((m) => m.content.includes('<memory>')));
 });
 
 test('macros are applied inside remembered text', () => {

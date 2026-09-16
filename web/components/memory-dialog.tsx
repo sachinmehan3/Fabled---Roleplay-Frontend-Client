@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Brain, LoaderCircle, Pin, PinOff, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Brain, LoaderCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
-import type { ChatMemory, MemoryFact } from '@/types';
-import { cn } from '@/lib/utils';
+import type { ChatMemory } from '@/types';
 import { useConfirm } from '@/hooks/use-confirm';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -29,7 +27,6 @@ export function MemoryDialog({ open, onOpenChange, chatId, characterName }: Prop
   const confirm = useConfirm();
   const [memory, setMemory] = useState<ChatMemory | null>(null);
   const [summary, setSummary] = useState('');
-  const [facts, setFacts] = useState<MemoryFact[]>([]);
   const [loading, setLoading] = useState(false);
   const [folding, setFolding] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -37,7 +34,6 @@ export function MemoryDialog({ open, onOpenChange, chatId, characterName }: Prop
   const load = (m: ChatMemory) => {
     setMemory(m);
     setSummary(m.summary);
-    setFacts(m.facts);
   };
 
   useEffect(() => {
@@ -69,7 +65,7 @@ export function MemoryDialog({ open, onOpenChange, chatId, characterName }: Prop
   const save = async () => {
     setSaving(true);
     try {
-      load(await api.saveMemory(chatId, { summary, facts }));
+      load(await api.saveMemory(chatId, { summary }));
       toast.success('Memory saved');
       onOpenChange(false);
     } catch (e) {
@@ -79,10 +75,10 @@ export function MemoryDialog({ open, onOpenChange, chatId, characterName }: Prop
     }
   };
 
-  const clear = async () => {
+  const forget = async () => {
     const ok = await confirm({
       title: 'Forget this chat?',
-      description: 'The summary and every unpinned fact are removed. Pinned facts are kept.',
+      description: `${characterName} keeps only the messages still inside the context window.`,
       confirmText: 'Forget',
       destructive: true,
     });
@@ -93,9 +89,6 @@ export function MemoryDialog({ open, onOpenChange, chatId, characterName }: Prop
       toast.error((e as Error).message);
     }
   };
-
-  const updateFact = (id: string, patch: Partial<MemoryFact>) =>
-    setFacts((list) => list.map((f) => (f.id === id ? { ...f, ...patch } : f)));
 
   const busy = loading || folding || saving;
 
@@ -111,75 +104,20 @@ export function MemoryDialog({ open, onOpenChange, chatId, characterName }: Prop
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[60vh] space-y-5 overflow-y-auto px-6 py-5">
+        <div className="px-6 py-5">
           <div className="grid gap-2">
             <Label htmlFor="memory-summary">Summary</Label>
             <Textarea
               id="memory-summary"
-              className="min-h-32"
+              className="max-h-[50vh] min-h-56"
               placeholder="Nothing yet. This fills in once the chat outgrows the context window."
               value={summary}
               onChange={(e) => setSummary(e.target.value)}
             />
-          </div>
-
-          <div className="grid gap-2">
-            <div className="flex items-center justify-between">
-              <Label>Facts</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setFacts((list) => [
-                    ...list,
-                    { id: `new-${Date.now().toString(36)}`, text: '', pinned: true, createdAt: Date.now() },
-                  ])
-                }
-              >
-                <Plus />
-                Add
-              </Button>
-            </div>
-            {facts.length === 0 ? (
-              <p className="text-muted-foreground text-xs">
-                Short statements that stay true: injuries, promises, where they are, who they trust.
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {facts.map((f) => (
-                  <li key={f.id} className="flex items-center gap-2">
-                    <Input
-                      value={f.text}
-                      aria-label="Fact"
-                      className={cn('h-9', f.pinned && 'border-primary/40')}
-                      onChange={(e) => updateFact(f.id, { text: e.target.value })}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={f.pinned ? 'Unpin fact' : 'Pin fact'}
-                      title={f.pinned ? 'Pinned: never dropped or overwritten' : 'Pin this fact'}
-                      className={cn(f.pinned && 'text-primary')}
-                      onClick={() => updateFact(f.id, { pinned: !f.pinned })}
-                    >
-                      {f.pinned ? <Pin /> : <PinOff />}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Remove fact"
-                      className="hover:text-destructive"
-                      onClick={() => setFacts((list) => list.filter((x) => x.id !== f.id))}
-                    >
-                      <Trash2 />
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <p className="text-muted-foreground text-xs">
+              Edit it freely - your wording is kept until the next fold rewrites it, and anything you delete is
+              genuinely forgotten.
+            </p>
           </div>
         </div>
 
@@ -189,7 +127,7 @@ export function MemoryDialog({ open, onOpenChange, chatId, characterName }: Prop
               {folding ? <LoaderCircle className="animate-spin" /> : <RefreshCw />}
               Summarise now
             </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={clear} disabled={busy}>
+            <Button type="button" variant="ghost" size="sm" onClick={forget} disabled={busy}>
               <Brain />
               Forget
             </Button>

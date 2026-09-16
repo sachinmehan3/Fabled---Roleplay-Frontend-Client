@@ -1,4 +1,4 @@
-// Chat memory: a rolling summary plus durable facts, folded in the background.
+// Chat memory: a rolling summary, folded in the background.
 //
 // This never runs before a reply - it runs after one is saved, on the messages
 // that have just fallen out of the context window. If it fails, the chat is
@@ -6,74 +6,42 @@
 import type { CharacterCard } from './cards.ts';
 import { applyMacros } from './prompt.ts';
 import { completeChat } from './llm.ts';
-import { getMemory, saveMemory, type ChatMemory, type MemoryFact, type MessageRow, type Settings } from './store.ts';
+import { getMemory, saveMemory, type ChatMemory, type MessageRow, type Settings } from './store.ts';
 
-/** Facts are cheap, but not free: past this the oldest unpinned ones fall off. */
-const MAX_FACTS = 40;
-const MAX_SUMMARY_CHARS = 1400;
+const MAX_SUMMARY_CHARS = 2000;
 /** Never send an unbounded transcript to the summariser. */
 const MAX_FOLD_CHARS = 24_000;
 
 const INSTRUCTIONS = `You keep the memory of an ongoing roleplay so it can continue after older messages are forgotten.
 
-Rewrite the running summary so it also covers the new messages, and list the durable facts.
+Rewrite the running summary so it also covers the new messages below.
 
 Rules:
-- The summary is past tense, third person, at most 200 words. Keep what still matters: what happened, how the characters changed towards each other, and anything unresolved. Drop small talk.
-- Facts are short standalone statements that stay true later: relationships, injuries, promises, possessions, places, names. One clause each, under 15 words.
+- Past tense, third person, at most 250 words.
+- Keep what still matters later: what happened, how the characters changed towards each other, what was promised or decided, and anything left unresolved. Keep concrete details that stay true - injuries, names, places, possessions.
+- Drop small talk and anything already superseded.
 - Use only what is written below. Never invent anything, and never continue the story.
-- Reply with JSON and nothing else: {"summary": "...", "facts": ["...", "..."]}`;
+- Reply with the summary text and nothing else. No preamble, no headings, no quotes.`;
 
-/** Pull the JSON object out of a reply that may be fenced or padded with prose. */
-export function parseFold(raw: string): { summary: string; facts: string[] } | null {
-  const text = raw.replace(/^\s*```(?:json)?/i, '').replace(/```\s*$/, '');
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  if (start === -1 || end <= start) return null;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text.slice(start, end + 1));
-  } catch {
-    return null;
+/** Strip the padding a model puts around a summary it was asked to write bare. */
+export function cleanSummary(raw: string): string {
+  let text = raw.trim();
+  // A fenced block, or one the model wrapped in quotes.
+  const fenced = /^```(?:\w+)?\s*([\s\S]*?)\s*```$/.exec(text);
+  if (fenced) text = fenced[1].trim();
+  const quoted = /^"([\s\S]+)"$/.exec(text);
+  if (quoted) text = quoted[1].trim();
+  // Some models answer in JSON even when asked not to.
+  if (text.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed.summary === 'string') text = parsed.summary.trim();
+    } catch {
+      /* not JSON after all; keep the text as it is */
+    }
   }
-  if (!parsed || typeof parsed !== 'object') return null;
-  const obj = parsed as Record<string, unknown>;
-  const summary = typeof obj.summary === 'string' ? obj.summary.trim() : '';
-  const facts = Array.isArray(obj.facts)
-    ? obj.facts.filter((f): f is string => typeof f === 'string').map((f) => f.replace(/^[-*]\s*/, '').trim())
-    : [];
-  if (!summary && !facts.length) return null;
-  return { summary: summary.slice(0, MAX_SUMMARY_CHARS), facts };
-}
-
-const key = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-
-/** Merge a fold into what is already remembered, keeping pinned facts safe. */
-export function mergeMemory(current: ChatMemory, fold: { summary: string; facts: string[] }, coveredThrough: number): ChatMemory {
-  const facts: MemoryFact[] = [...current.facts];
-  const seen = new Set(facts.map((f) => key(f.text)));
-  for (const text of fold.facts) {
-    const trimmed = text.trim();
-    if (!trimmed || seen.has(key(trimmed))) continue;
-    seen.add(key(trimmed));
-    facts.push({ id: `${Date.now().toString(36)}-${facts.length}`, text: trimmed, createdAt: Date.now() });
-  }
-
-  // Trim from the oldest unpinned end, never touching anything pinned.
-  while (facts.length > MAX_FACTS) {
-    const victim = facts.findIndex((f) => !f.pinned);
-    if (victim === -1) break;
-    facts.splice(victim, 1);
-  }
-
-  return {
-    ...current,
-    summary: fold.summary || current.summary,
-    facts,
-    coveredThrough: Math.max(current.coveredThrough, coveredThrough),
-    folds: current.folds + 1,
-    updatedAt: Date.now(),
-  };
+  text = text.replace(/^(?:here(?:'s| is)[^:]*:|summary:)\s*/i, '').trim();
+  return text.slice(0, MAX_SUMMARY_CHARS);
 }
 
 /** The transcript handed to the summariser, oldest first and length-capped. */
@@ -82,9 +50,8 @@ function transcript(messages: MessageRow[], charName: string, userName: string):
     const who = m.role === 'user' ? userName : charName;
     return `[${who}]: ${applyMacros(m.swipes[m.swipe_index] ?? '', charName, userName)}`;
   });
-  let out = lines.join('\n\n');
-  if (out.length > MAX_FOLD_CHARS) out = `...\n\n${out.slice(out.length - MAX_FOLD_CHARS)}`; // keep the most recent
-  return out;
+  const out = lines.join('\n\n');
+  return out.length > MAX_FOLD_CHARS ? `...\n\n${out.slice(out.length - MAX_FOLD_CHARS)}` : out; // keep the most recent
 }
 
 const inFlight = new Set<number>();
@@ -107,7 +74,6 @@ export async function foldMemory(
 
   inFlight.add(chatId);
   try {
-    const factList = current.facts.map((f) => `- ${f.text}`).join('\n');
     const result = await completeChat(
       settings,
       [
@@ -116,7 +82,6 @@ export async function foldMemory(
           role: 'user',
           content: [
             current.summary ? `Summary so far:\n${current.summary}` : 'There is no summary yet.',
-            factList ? `Known facts:\n${factList}` : 'No facts recorded yet.',
             `New messages to fold in:\n${transcript(fresh, card.name, settings.userName)}`,
           ].join('\n\n'),
         },
@@ -124,10 +89,16 @@ export async function foldMemory(
       { maxTokens: 700, temperature: 0.3, timeoutMs: 60_000 },
     );
 
-    const fold = parseFold(result.reply);
-    if (!fold) throw new Error('the model did not return usable JSON');
+    const summary = cleanSummary(result.reply);
+    if (!summary) throw new Error('the model returned an empty summary');
 
-    const updated = mergeMemory(current, fold, fresh.at(-1)!.id);
+    const updated: ChatMemory = {
+      ...current,
+      summary,
+      coveredThrough: Math.max(current.coveredThrough, fresh.at(-1)!.id),
+      folds: current.folds + 1,
+      updatedAt: Date.now(),
+    };
     saveMemory(chatId, updated);
     return updated;
   } finally {

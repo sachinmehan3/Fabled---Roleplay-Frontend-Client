@@ -229,7 +229,7 @@ export function GenerationDialog({ open, onOpenChange, messageId, swipeIndex, sw
                 <Stat
                   label="Memory"
                   value={meta.memoryTokens ? `${num(meta.memoryTokens)} tokens` : 'none sent'}
-                  sub={meta.memoryFacts ? `summary + ${meta.memoryFacts} facts` : undefined}
+                  sub={meta.memoryTokens ? 'summary of older messages' : undefined}
                 />
                 <Stat
                   label="Thinking"
