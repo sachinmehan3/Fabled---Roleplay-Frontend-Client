@@ -78,7 +78,7 @@ export function EmptyState({
             n={2}
             done={hasCharacters}
             title="Add a character"
-            text="Write your own card, or import a Tavern PNG / JSON"
+            text="Write your own card, or import a Tavern PNG / JSON or a Chub link"
             action={
               <div className="flex gap-2">
                 <Button size="sm" variant={hasModel && !hasCharacters ? 'default' : 'outline'} onClick={onCreate}>

@@ -20,12 +20,14 @@ import { foldMemory } from './core/memory.ts';
 import { activateLore, EMPTY_ENTRY } from './core/lorebook.ts';
 import { importLorebook as parseLorebook } from './core/lorebook-import.ts';
 import { isPng, normalizeCard, parseCardFile } from './core/cards.ts';
+import { chubCardUrl, chubPath } from './core/chub.ts';
 import { applyMacros, buildPrompt, estimateTokens } from './core/prompt.ts';
 import { postProcess } from './core/post-process.ts';
 import { describeImage, listModels, streamChat, testChat, type StreamReport } from './core/llm.ts';
 import starterCard from '../samples/sable.card.json';
 
 const MAX_UPLOAD = 20 * 1024 * 1024;
+const TOO_LARGE = 'That file is too large (20 MB at most).';
 
 // ---------- start-up ----------
 
@@ -73,7 +75,7 @@ async function oneCharacter(id: number): Promise<Character> {
 }
 
 async function readFile(file: Blob): Promise<Uint8Array<ArrayBuffer>> {
-  if (file.size > MAX_UPLOAD) throw new Error('That file is too large (20 MB at most).');
+  if (file.size > MAX_UPLOAD) throw new Error(TOO_LARGE);
   return new Uint8Array(await file.arrayBuffer());
 }
 
@@ -140,6 +142,32 @@ const NEW_BOOK: Omit<Lorebook, 'id' | 'created_at'> = {
   budget: 1024,
   entries: [],
 };
+
+/** A PNG or JSON card. A PNG is also kept as the avatar, and an embedded lorebook as a lorebook. */
+async function importCard(bytes: Uint8Array<ArrayBuffer>): Promise<Character> {
+  let parsed;
+  try {
+    parsed = parseCardFile(bytes);
+  } catch (e) {
+    throw new Error(`Could not read card: ${(e as Error).message}`);
+  }
+  const avatar = parsed.png ? await db.putImage(new Blob([bytes], { type: 'image/png' })) : null;
+  const row = await db.insertCharacter(parsed.card.name, parsed.card, avatar);
+
+  let lorebook: Character['lorebook'];
+  if (parsed.book) {
+    try {
+      const book = await db.insertLorebook({
+        ...parseLorebook(parsed.book, `${row.name} lorebook`),
+        characterIds: [row.id],
+      });
+      lorebook = { name: book.name, entries: book.entries.length };
+    } catch (e) {
+      console.error(`Card lorebook for ${row.name} could not be read:`, (e as Error).message);
+    }
+  }
+  return { ...(await oneCharacter(row.id)), lorebook };
+}
 
 // ---------- the API ----------
 
@@ -217,31 +245,28 @@ export const api = {
     return (await db.listCharacters()).map((row) => characterOut(row, counts));
   },
 
-  /** A PNG or JSON card. A PNG is also kept as the avatar, and an embedded lorebook as a lorebook. */
-  importCharacter: async (file: File): Promise<Character> => {
-    const bytes = await readFile(file);
-    let parsed;
-    try {
-      parsed = parseCardFile(bytes);
-    } catch (e) {
-      throw new Error(`Could not read card: ${(e as Error).message}`);
-    }
-    const avatar = parsed.png ? await db.putImage(new Blob([bytes], { type: 'image/png' })) : null;
-    const row = await db.insertCharacter(parsed.card.name, parsed.card, avatar);
+  importCharacter: async (file: File): Promise<Character> => importCard(await readFile(file)),
 
-    let lorebook: Character['lorebook'];
-    if (parsed.book) {
-      try {
-        const book = await db.insertLorebook({
-          ...parseLorebook(parsed.book, `${row.name} lorebook`),
-          characterIds: [row.id],
-        });
-        lorebook = { name: book.name, entries: book.entries.length };
-      } catch (e) {
-        console.error(`Card lorebook for ${row.name} could not be read:`, (e as Error).message);
-      }
+  /** A character page on chub.ai or characterhub.org, fetched as its PNG card. */
+  importCharacterFromUrl: async (link: string): Promise<Character> => {
+    const path = chubPath(link);
+    if (!path) {
+      throw new Error('Paste a character link from chub.ai or characterhub.org, like https://chub.ai/characters/creator/name');
     }
-    return { ...(await oneCharacter(row.id)), lorebook };
+    let res: Response;
+    try {
+      res = await fetch(chubCardUrl(path));
+    } catch {
+      throw new Error('Could not reach Chub. Check your connection and try again.');
+    }
+    if (res.status === 404) {
+      throw new Error('Chub has no card at that link. Check it, or download the card from Chub and import the file.');
+    }
+    if (!res.ok) throw new Error(`Chub could not send the card (error ${res.status}). Try again later.`);
+    if (Number(res.headers.get('content-length')) > MAX_UPLOAD) throw new Error(TOO_LARGE);
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    if (bytes.length > MAX_UPLOAD) throw new Error(TOO_LARGE);
+    return importCard(bytes);
   },
 
   createCharacter: async (input: CharacterCard) => {

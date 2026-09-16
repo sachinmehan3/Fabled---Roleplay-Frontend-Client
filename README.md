@@ -5,6 +5,7 @@ A minimal, hackable roleplay chat frontend in the spirit of SillyTavern.
 - **Streaming chat** with any OpenAI-compatible API: OpenRouter, Ollama, LM Studio, KoboldCpp, llama.cpp, vLLM, OpenAI
 - **Clean shadcn/ui interface:** light and dark themes, works on phones, character search, toast notifications
 - **Character cards:** import Tavern Card V1/V2/V3 as PNG or JSON; alternate greetings become swipes, and a lorebook embedded in the card comes with it
+- **Import from Chub:** paste a chub.ai or characterhub.org character link; the card is fetched from Chub's image CDN, which works even where Chub's API is blocked
 - **Character editor:** write a card from scratch or edit any imported one, avatar included
 - **User card:** your own name, persona and picture, on their own Settings tab; the persona is sent with every prompt, and a vision model can write your appearance from your picture
 - **Expandable profiles:** click any avatar or name to see the full card picture and its fields
@@ -139,6 +140,7 @@ web/
     lorebook-import.ts  reads a SillyTavern World Info export
     memory.ts         folds forgotten messages into a rolling summary
     cards.ts          PNG tEXt chunk reader, card normalization
+    chub.ts           turns a Chub character link into its card URL
     prompt.ts         prompt builder, macros, context trimming
     post-process.ts   reshapes the finished prompt for fussy backends
     llm.ts            OpenAI-compatible streaming client
@@ -153,6 +155,7 @@ web/
     avatar-picker.tsx     shared picture picker for cards and the user
     settings-dialog.tsx connection / user / customize / generation / prompt / data tabs
     data-panel.tsx      backup, restore, clear all, storage status
+    import-dialog.tsx   import a card from a file or a Chub link
     empty-state.tsx     first-run checklist
     ui/                 shadcn/ui components
 ```

@@ -126,7 +126,7 @@ export function AppSidebar(p: Props) {
                 <Upload />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Import a Tavern card (PNG or JSON)</TooltipContent>
+            <TooltipContent>Import a card file or a Chub link</TooltipContent>
           </Tooltip>
         </div>
         <div className="relative">

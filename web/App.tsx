@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import type { Character, Chat, Settings } from '@/types';
@@ -11,6 +11,7 @@ import { CharacterGallery } from '@/components/character-gallery';
 import { LorebookDialog } from '@/components/lorebook-dialog';
 import { EmptyState } from '@/components/empty-state';
 import { SettingsDialog, type SettingsTab } from '@/components/settings-dialog';
+import { ImportDialog } from '@/components/import-dialog';
 
 const LAST_OPEN_KEY = 'rp-last-open';
 
@@ -44,7 +45,7 @@ export function App() {
       return true;
     }
   });
-  const fileInput = useRef<HTMLInputElement>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -118,8 +119,8 @@ export function App() {
     }
   };
 
-  const importCharacter = async (file: File) => {
-    const c = await api.importCharacter(file);
+  const importCharacter = async (source: File | string) => {
+    const c = typeof source === 'string' ? await api.importCharacterFromUrl(source) : await api.importCharacter(source);
     setCharacters(await api.listCharacters());
     toast.success(
       c.lorebook ? `Imported ${c.name}, with ${c.lorebook.entries} lorebook entries` : `Imported ${c.name}`,
@@ -192,7 +193,7 @@ export function App() {
     chats,
     selectedChatId: chatId,
     onSelectCharacter: run(openCharacter),
-    onImport: () => fileInput.current?.click(),
+    onImport: () => setImportOpen(true),
     onCreateCharacter: () => openEditor(null),
     onBrowseCharacters: () => {
       setGalleryOpen(true);
@@ -219,18 +220,7 @@ export function App() {
 
   return (
     <div className="bg-background flex h-dvh overflow-hidden">
-      <input
-        ref={fileInput}
-        type="file"
-        accept=".png,.json,image/png,application/json"
-        hidden
-        data-testid="import-input"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) run(importCharacter)(f);
-          e.target.value = '';
-        }}
-      />
+      <ImportDialog open={importOpen} onOpenChange={setImportOpen} onFile={importCharacter} onUrl={importCharacter} />
 
       {/* Desktop sidebar. The wrapper animates its width while the panel inside keeps
           its own, so the contents slide out of view instead of reflowing. */}
@@ -284,7 +274,7 @@ export function App() {
           <EmptyState
             hasModel={!!settings?.model}
             hasCharacters={characters.length > 0}
-            onImport={() => fileInput.current?.click()}
+            onImport={() => setImportOpen(true)}
             onCreate={() => openEditor(null)}
             onOpenSettings={() => openSettings('connection')}
             onOpenSidebar={openSidebar}
@@ -315,7 +305,7 @@ export function App() {
         }}
         onImport={() => {
           setGalleryOpen(false);
-          fileInput.current?.click();
+          setImportOpen(true);
         }}
       />
 
