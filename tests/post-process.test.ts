@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { postProcess, CONVERSATION_START } from '../server/post-process.ts';
-import type { ChatMessage } from '../server/prompt.ts';
+import { postProcess, CONVERSATION_START } from '../web/core/post-process.ts';
+import type { ChatMessage } from '../web/core/prompt.ts';
 
 const sys = (content: string): ChatMessage => ({ role: 'system', content });
 const usr = (content: string): ChatMessage => ({ role: 'user', content });

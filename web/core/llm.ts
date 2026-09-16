@@ -1,6 +1,6 @@
 // Streaming client for any OpenAI-compatible /chat/completions endpoint
 // (OpenRouter, Ollama, llama.cpp, KoboldCpp, LM Studio, vLLM, OpenAI, ...).
-import type { Settings, TokenUsage } from './store.ts';
+import type { Settings, TokenUsage } from '../types.ts';
 import type { ChatMessage } from './prompt.ts';
 
 function baseUrl(s: Settings) {
@@ -15,7 +15,10 @@ async function request(url: string, init: RequestInit): Promise<Response> {
     const err = e as Error;
     if (err.name === 'AbortError') throw err; // the user pressed Stop
     if (err.name === 'TimeoutError') throw new Error(`No response from ${url} within 20 seconds.`);
-    throw new Error(`Could not reach ${url}. Is the server running and the URL correct?`);
+    throw new Error(
+      `Could not reach ${url}. Check the URL, and that the server is running. ` +
+        'If it is, it may not allow requests from a browser (CORS) - local servers such as Ollama need that switched on.',
+    );
   }
 }
 
@@ -65,9 +68,12 @@ async function readJson(res: Response): Promise<any> {
 function headers(s: Settings): Record<string, string> {
   const h: Record<string, string> = { 'Content-Type': 'application/json' };
   if (s.apiKey) h.Authorization = `Bearer ${s.apiKey}`;
-  // Optional OpenRouter attribution headers (ignored by other providers).
-  h['HTTP-Referer'] = 'http://localhost';
-  h['X-Title'] = 'Fabled';
+  // OpenRouter attribution. Only sent there: an unexpected header can fail
+  // another provider's CORS preflight.
+  if (/openrouter\.ai/i.test(s.apiBase)) {
+    h['HTTP-Referer'] = typeof location === 'undefined' ? 'https://fabled.local' : location.origin;
+    h['X-Title'] = 'Fabled';
+  }
   return h;
 }
 
@@ -198,8 +204,12 @@ export async function* streamChat(
   const decoder = new TextDecoder();
   const think = createThinkSplitter();
   let buffer = '';
-  for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
-    buffer += decoder.decode(chunk, { stream: true });
+  // A reader rather than `for await`, which Safari cannot do over a stream.
+  const reader = res.body.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
     let nl: number;
     while ((nl = buffer.indexOf('\n')) !== -1) {
       const line = buffer.slice(0, nl).trim();

@@ -1,18 +1,10 @@
+import 'fake-indexeddb/auto';
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import type { CharacterCard } from '../server/cards.ts';
-import type { GenerationMeta } from '../server/store.ts';
+import type { CharacterCard, GenerationMeta } from '../web/types.ts';
+import * as store from '../web/core/db.ts';
 
-// store.ts reads RP_DATA_DIR when it is first imported, so point it somewhere
-// disposable before importing it.
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fabled-test-'));
-process.env.RP_DATA_DIR = dir;
-const store = await import('../server/store.ts');
-
-after(() => fs.rmSync(dir, { recursive: true, force: true }));
+after(() => store.resetDatabase());
 
 const card = (name: string): CharacterCard => ({
   name,
@@ -51,185 +43,246 @@ const meta = (over: Partial<GenerationMeta> = {}): GenerationMeta => ({
   ...over,
 });
 
-test('settings start from the defaults and merge on save', () => {
-  assert.equal(store.getSettings().userName, store.DEFAULT_SETTINGS.userName);
-  store.saveSettings({ userName: 'Kai', temperature: 0.5 });
-  const saved = store.getSettings();
+test('settings start from the defaults and merge on save', async () => {
+  assert.equal((await store.getSettings()).userName, store.DEFAULT_SETTINGS.userName);
+  await store.saveSettings({ userName: 'Kai', temperature: 0.5 });
+  const saved = await store.getSettings();
   assert.equal(saved.userName, 'Kai');
   assert.equal(saved.temperature, 0.5);
   assert.equal(saved.model, store.DEFAULT_SETTINGS.model, 'untouched fields keep their default');
 });
 
-test('settings of the wrong type are refused', () => {
-  store.saveSettings({ temperature: 'hot' as unknown as number });
-  assert.equal(store.getSettings().temperature, 0.5, 'the good value survives');
+test('settings of the wrong type are refused', async () => {
+  await store.saveSettings({ temperature: 'hot' as unknown as number });
+  assert.equal((await store.getSettings()).temperature, 0.5, 'the good value survives');
 });
 
-test('unknown settings keys are not stored', () => {
-  store.saveSettings({ nonsense: true } as never);
-  assert.ok(!('nonsense' in store.getSettings()));
+test('unknown settings keys are not stored', async () => {
+  await store.saveSettings({ nonsense: true } as never);
+  assert.ok(!('nonsense' in await store.getSettings()));
 });
 
-test('characters round-trip, and ids are never reused', () => {
-  const a = store.insertCharacter('Lyra', card('Lyra'));
-  const b = store.insertCharacter('Callie', card('Callie'));
+test('characters round-trip, and ids are never reused', async () => {
+  const a = await store.insertCharacter('Lyra', card('Lyra'));
+  const b = await store.insertCharacter('Callie', card('Callie'));
   assert.notEqual(a.id, b.id);
-  assert.equal(store.getCharacter(a.id)?.name, 'Lyra');
+  assert.equal((await store.getCharacter(a.id))?.name, 'Lyra');
   assert.deepEqual(
-    store.listCharacters().map((c) => c.name),
+    (await store.listCharacters()).map((c) => c.name),
     ['Callie', 'Lyra'],
     'listed by name, case-insensitively',
   );
 });
 
-test('a character update keeps the rest of the row', () => {
-  const c = store.insertCharacter('Edit me', card('Edit me'));
-  store.updateCharacter(c.id, { avatar: 'pic.png' });
-  const after = store.getCharacter(c.id)!;
+test('a character update keeps the rest of the row', async () => {
+  const c = await store.insertCharacter('Edit me', card('Edit me'));
+  await store.updateCharacter(c.id, { avatar: 'pic.png' });
+  const after = (await store.getCharacter(c.id))!;
   assert.equal(after.avatar, 'pic.png');
   assert.equal(after.created_at, c.created_at);
 });
 
-test('messages append to the chat log and come back in order', () => {
-  const c = store.insertCharacter('Chatty', card('Chatty'));
-  const chat = store.insertChat(c.id, 'A chat');
-  store.insertMessage(chat.id, 'assistant', ['Greeting.']);
-  store.insertMessage(chat.id, 'user', ['Hello.']);
+test('messages append to the chat log and come back in order', async () => {
+  const c = await store.insertCharacter('Chatty', card('Chatty'));
+  const chat = await store.insertChat(c.id, 'A chat');
+  await store.insertMessage(chat.id, 'assistant', ['Greeting.']);
+  await store.insertMessage(chat.id, 'user', ['Hello.']);
 
-  const messages = store.listMessages(chat.id);
+  const messages = await store.listMessages(chat.id);
   assert.deepEqual(
     messages.map((m) => m.role),
     ['assistant', 'user'],
   );
-  assert.equal(store.getChat(chat.id)?.message_count, 2);
+  assert.equal((await store.getChat(chat.id))?.message_count, 2);
 });
 
-test('a record is kept per swipe, with the prompt in the sidecar file', () => {
-  const c = store.insertCharacter('Recorded', card('Recorded'));
-  const chat = store.insertChat(c.id, 'A chat');
+test('a record is kept per swipe, with the prompt kept apart', async () => {
+  const c = await store.insertCharacter('Recorded', card('Recorded'));
+  const chat = await store.insertChat(c.id, 'A chat');
   const prompt = [{ role: 'system' as const, content: 'You are Recorded.' }];
-  const msg = store.insertMessage(chat.id, 'assistant', ['First reply.'], [meta({ prompt })]);
+  const msg = await store.insertMessage(chat.id, 'assistant', ['First reply.'], [meta({ prompt })]);
 
-  // The log stays small: the prompt is not in it.
-  const line = fs.readFileSync(path.join(dir, 'chats', `${chat.id}.jsonl`), 'utf8');
-  assert.ok(!line.includes('You are Recorded.'), 'the prompt must not be in the chat log');
-  assert.equal(store.getMessage(msg.id)?.meta[0]?.status, 'ok');
-  assert.deepEqual(store.getRecord(chat.id, msg.id, 0)?.prompt, prompt);
+  // The message stays small: the prompt is not on it.
+  assert.ok(!JSON.stringify(await store.getMessage(msg.id)).includes('You are Recorded.'));
+  assert.equal((await store.getMessage(msg.id))?.meta[0]?.status, 'ok');
+  assert.deepEqual((await store.getRecord(msg.id, 0))?.prompt, prompt);
 });
 
-test('a second swipe gets its own record and prompt', () => {
-  const c = store.insertCharacter('Swiper', card('Swiper'));
-  const chat = store.insertChat(c.id, 'A chat');
+test('a second swipe gets its own record and prompt', async () => {
+  const c = await store.insertCharacter('Swiper', card('Swiper'));
+  const chat = await store.insertChat(c.id, 'A chat');
   const first = [{ role: 'system' as const, content: 'first prompt' }];
-  const msg = store.insertMessage(chat.id, 'assistant', ['One.'], [meta({ prompt: first })]);
+  const msg = await store.insertMessage(chat.id, 'assistant', ['One.'], [meta({ prompt: first })]);
 
   const second = [{ role: 'system' as const, content: 'second prompt' }];
-  store.saveSwipes(msg.id, ['One.', 'Two.'], [meta({ prompt: first }), meta({ status: 'stopped', prompt: second })], 1);
+  await store.saveSwipes(msg.id, ['One.', 'Two.'], [meta({ prompt: first }), meta({ status: 'stopped', prompt: second })], 1);
 
-  const saved = store.getMessage(msg.id)!;
+  const saved = (await store.getMessage(msg.id))!;
   assert.deepEqual(saved.swipes, ['One.', 'Two.']);
   assert.equal(saved.swipe_index, 1);
   assert.equal(saved.meta[1]?.status, 'stopped');
-  assert.deepEqual(store.getRecord(chat.id, msg.id, 1)?.prompt, second);
+  assert.deepEqual((await store.getRecord(msg.id, 1))?.prompt, second);
 });
 
-test('reasoning is kept beside the log, not inside it', () => {
-  const c = store.insertCharacter('Thinker', card('Thinker'));
-  const chat = store.insertChat(c.id, 'A chat');
-  const msg = store.insertMessage(
+test('reasoning is kept beside the log, not inside it', async () => {
+  const c = await store.insertCharacter('Thinker', card('Thinker'));
+  const chat = await store.insertChat(c.id, 'A chat');
+  const msg = await store.insertMessage(
     chat.id,
     'assistant',
     ['The answer.'],
     [meta({ reasoning: 'First I considered the map.', reasoningChars: 27 })],
   );
 
-  const line = fs.readFileSync(path.join(dir, 'chats', `${chat.id}.jsonl`), 'utf8');
-  assert.ok(!line.includes('First I considered'), 'thinking must not bloat the chat log');
-  assert.equal(store.getMessage(msg.id)?.meta[0]?.reasoningChars, 27, 'but its size stays, so the UI knows');
-  assert.equal(store.getRecord(chat.id, msg.id, 0)?.reasoning, 'First I considered the map.');
+  assert.ok(!JSON.stringify(await store.getMessage(msg.id)).includes('First I considered'), 'thinking must not bloat the message');
+  assert.equal((await store.getMessage(msg.id))?.meta[0]?.reasoningChars, 27, 'but its size stays, so the UI knows');
+  assert.equal((await store.getRecord(msg.id, 0))?.reasoning, 'First I considered the map.');
 });
 
-test('records stay aligned with swipes when a message has none', () => {
-  const c = store.insertCharacter('Greeter', card('Greeter'));
-  const chat = store.insertChat(c.id, 'A chat');
-  const msg = store.insertMessage(chat.id, 'assistant', ['Hi.', 'Hello.', 'Hey.']);
-  assert.deepEqual(store.getMessage(msg.id)?.meta, [null, null, null]);
+test('records stay aligned with swipes when a message has none', async () => {
+  const c = await store.insertCharacter('Greeter', card('Greeter'));
+  const chat = await store.insertChat(c.id, 'A chat');
+  const msg = await store.insertMessage(chat.id, 'assistant', ['Hi.', 'Hello.', 'Hey.']);
+  assert.deepEqual((await store.getMessage(msg.id))?.meta, [null, null, null]);
 });
 
-test('deleting a message prunes its prompts and updates the count', () => {
-  const c = store.insertCharacter('Deleter', card('Deleter'));
-  const chat = store.insertChat(c.id, 'A chat');
-  const keep = store.insertMessage(chat.id, 'user', ['Keep me.']);
-  const drop = store.insertMessage(chat.id, 'assistant', ['Drop me.'], [meta({ prompt: [{ role: 'system', content: 'gone' }] })]);
+test('deleting a message prunes its prompts and updates the count', async () => {
+  const c = await store.insertCharacter('Deleter', card('Deleter'));
+  const chat = await store.insertChat(c.id, 'A chat');
+  const keep = await store.insertMessage(chat.id, 'user', ['Keep me.']);
+  const drop = await store.insertMessage(chat.id, 'assistant', ['Drop me.'], [meta({ prompt: [{ role: 'system', content: 'gone' }] })]);
 
-  store.deleteMessage(drop.id);
-  assert.equal(store.getMessage(drop.id), undefined);
-  assert.equal(store.getMessage(keep.id)?.swipes[0], 'Keep me.');
-  assert.equal(store.getChat(chat.id)?.message_count, 1);
-  assert.equal(store.getRecord(chat.id, drop.id, 0), undefined);
+  await store.deleteMessage(drop.id);
+  assert.equal(await store.getMessage(drop.id), undefined);
+  assert.equal((await store.getMessage(keep.id))?.swipes[0], 'Keep me.');
+  assert.equal((await store.getChat(chat.id))?.message_count, 1);
+  assert.equal(await store.getRecord(drop.id, 0), undefined);
 });
 
-test('deleting many messages at once takes their prompts with them', () => {
-  const c = store.insertCharacter('Bulk', card('Bulk'));
-  const chat = store.insertChat(c.id, 'A chat');
-  const keep = store.insertMessage(chat.id, 'assistant', ['Greeting.']);
-  const a = store.insertMessage(chat.id, 'user', ['One.'], [meta({ prompt: [{ role: 'system', content: 'p1' }] })]);
-  const b = store.insertMessage(chat.id, 'assistant', ['Two.'], [meta({ prompt: [{ role: 'system', content: 'p2' }] })]);
-  const d = store.insertMessage(chat.id, 'user', ['Three.']);
+test('deleting many messages at once takes their prompts with them', async () => {
+  const c = await store.insertCharacter('Bulk', card('Bulk'));
+  const chat = await store.insertChat(c.id, 'A chat');
+  const keep = await store.insertMessage(chat.id, 'assistant', ['Greeting.']);
+  const a = await store.insertMessage(chat.id, 'user', ['One.'], [meta({ prompt: [{ role: 'system', content: 'p1' }] })]);
+  const b = await store.insertMessage(chat.id, 'assistant', ['Two.'], [meta({ prompt: [{ role: 'system', content: 'p2' }] })]);
+  const d = await store.insertMessage(chat.id, 'user', ['Three.']);
 
-  assert.equal(store.deleteMessages(chat.id, [a.id, b.id, d.id]), 3);
+  assert.equal(await store.deleteMessages(chat.id, [a.id, b.id, d.id]), 3);
   assert.deepEqual(
-    store.listMessages(chat.id).map((m) => m.id),
+    (await store.listMessages(chat.id)).map((m) => m.id),
     [keep.id],
     'only the greeting is left',
   );
-  assert.equal(store.getChat(chat.id)?.message_count, 1);
-  assert.equal(store.getRecord(chat.id, a.id, 0), undefined, 'their prompts went too');
-  assert.equal(store.getRecord(chat.id, b.id, 0), undefined);
+  assert.equal((await store.getChat(chat.id))?.message_count, 1);
+  assert.equal(await store.getRecord(a.id, 0), undefined, 'their prompts went too');
+  assert.equal(await store.getRecord(b.id, 0), undefined);
 });
 
-test('deleting an empty or unknown set changes nothing', () => {
-  const c = store.insertCharacter('Untouched', card('Untouched'));
-  const chat = store.insertChat(c.id, 'A chat');
-  store.insertMessage(chat.id, 'user', ['Still here.']);
+test('deleting an empty or unknown set changes nothing', async () => {
+  const c = await store.insertCharacter('Untouched', card('Untouched'));
+  const chat = await store.insertChat(c.id, 'A chat');
+  await store.insertMessage(chat.id, 'user', ['Still here.']);
 
-  assert.equal(store.deleteMessages(chat.id, []), 0);
-  assert.equal(store.deleteMessages(chat.id, [99999]), 0);
-  assert.equal(store.listMessages(chat.id).length, 1);
-  assert.equal(store.getChat(chat.id)?.message_count, 1);
+  assert.equal(await store.deleteMessages(chat.id, []), 0);
+  assert.equal(await store.deleteMessages(chat.id, [99999]), 0);
+  assert.equal((await store.listMessages(chat.id)).length, 1);
+  assert.equal((await store.getChat(chat.id))?.message_count, 1);
 });
 
-test('deleting a character takes its chats and their files with it', () => {
-  const c = store.insertCharacter('Doomed', card('Doomed'));
-  const chat = store.insertChat(c.id, 'A chat');
-  store.insertMessage(chat.id, 'user', ['Hello.']);
-  const file = path.join(dir, 'chats', `${chat.id}.jsonl`);
-  assert.ok(fs.existsSync(file));
+test('deleting a character takes its chats and their messages with it', async () => {
+  const c = await store.insertCharacter('Doomed', card('Doomed'));
+  const chat = await store.insertChat(c.id, 'A chat');
+  const msg = await store.insertMessage(chat.id, 'assistant', ['Hello.'], [meta({ prompt: [{ role: 'system', content: 'p' }] })]);
+  await store.saveMemory(chat.id, { ...store.EMPTY_MEMORY, summary: 'They met.' });
 
-  store.deleteCharacter(c.id);
-  assert.equal(store.getCharacter(c.id), undefined);
-  assert.equal(store.getChat(chat.id), undefined);
-  assert.ok(!fs.existsSync(file), 'the chat log should be gone too');
+  await store.deleteCharacter(c.id);
+  assert.equal(await store.getCharacter(c.id), undefined);
+  assert.equal(await store.getChat(chat.id), undefined);
+  assert.equal(await store.getMessage(msg.id), undefined, 'the messages should be gone too');
+  assert.equal(await store.getRecord(msg.id, 0), undefined);
+  assert.equal((await store.getMemory(chat.id)).summary, '');
 });
 
-test('a torn line is skipped instead of losing the whole chat', () => {
-  const c = store.insertCharacter('Torn', card('Torn'));
-  const chat = store.insertChat(c.id, 'A chat');
-  store.insertMessage(chat.id, 'user', ['Good line.']);
-  const file = path.join(dir, 'chats', `${chat.id}.jsonl`);
-  fs.appendFileSync(file, '{"id":999,"chat_id":1,"role":"user","swipes":["hal\n');
+test('a message can be found by id alone, across chats', async () => {
+  const c = await store.insertCharacter('Finder', card('Finder'));
+  const one = await store.insertChat(c.id, 'One');
+  const two = await store.insertChat(c.id, 'Two');
+  await store.insertMessage(one.id, 'user', ['In chat one.']);
+  const target = await store.insertMessage(two.id, 'user', ['In chat two.']);
 
-  const messages = store.listMessages(chat.id);
-  assert.equal(messages.length, 1);
-  assert.equal(messages[0].swipes[0], 'Good line.');
+  assert.equal((await store.getMessage(target.id))?.chat_id, two.id);
 });
 
-test('a message can be found by id alone, across chats', () => {
-  const c = store.insertCharacter('Finder', card('Finder'));
-  const one = store.insertChat(c.id, 'One');
-  const two = store.insertChat(c.id, 'Two');
-  store.insertMessage(one.id, 'user', ['In chat one.']);
-  const target = store.insertMessage(two.id, 'user', ['In chat two.']);
+test('message counts and chat counts come from what is stored', async () => {
+  const c = await store.insertCharacter('Counted', card('Counted'));
+  const one = await store.insertChat(c.id, 'One');
+  await store.insertChat(c.id, 'Two');
+  await store.insertMessage(one.id, 'user', ['a']);
+  const counts = await store.chatCounts();
+  assert.equal(counts[c.id], 2);
+  const chats = await store.listChats(c.id);
+  assert.deepEqual(chats.map((x) => x.title), ['Two', 'One'], 'newest first');
+  assert.equal(chats[1].message_count, 1);
+});
 
-  assert.equal(store.getMessage(target.id)?.chat_id, two.id);
+test('fewer swipes drop the records of the ones that are gone', async () => {
+  const c = await store.insertCharacter('Trim', card('Trim'));
+  const chat = await store.insertChat(c.id, 'A chat');
+  const p = (content: string) => [{ role: 'system' as const, content }];
+  const msg = await store.insertMessage(chat.id, 'assistant', ['A', 'B'], [meta({ prompt: p('a') }), meta({ prompt: p('b') })]);
+  await store.saveSwipes(msg.id, ['C'], [meta({ prompt: p('c') })], 0);
+  assert.deepEqual((await store.getRecord(msg.id, 0))?.prompt, p('c'));
+  assert.equal(await store.getRecord(msg.id, 1), undefined);
+});
+
+test('images are stored and read back byte for byte', async () => {
+  const id = await store.putImage(new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' }));
+  const blob = (await store.getImage(id))!;
+  assert.equal(blob.type, 'image/png');
+  assert.deepEqual([...new Uint8Array(await blob.arrayBuffer())], [1, 2, 3]);
+  await store.deleteImage(id);
+  assert.equal(await store.getImage(id), undefined);
+});
+
+test('a backup leaves out the API key unless asked', async () => {
+  await store.saveSettings({ apiKey: 'sk-secret-123' });
+  const plain = await store.exportBackup();
+  assert.ok(!JSON.stringify(plain).includes('sk-secret-123'));
+  const withKey = await store.exportBackup({ includeApiKey: true });
+  assert.equal(withKey.settings.apiKey, 'sk-secret-123');
+});
+
+test('a backup restores everything, and replaces what was there', async () => {
+  const c = await store.insertCharacter('Saved', card('Saved'), await store.putImage(new Blob(['png'])));
+  const chat = await store.insertChat(c.id, 'Kept chat');
+  const msg = await store.insertMessage(chat.id, 'assistant', ['Hi.'], [meta({ reasoning: 'hmm' })]);
+  await store.saveMemory(chat.id, { ...store.EMPTY_MEMORY, summary: 'Remembered.' });
+  await store.insertLorebook({
+    name: 'World', enabled: true, characterIds: [c.id], scanDepth: 2, caseSensitive: false,
+    matchWholeWords: true, maxRecursionSteps: 0, budget: 0, entries: [],
+  });
+  const backup = JSON.parse(JSON.stringify(await store.exportBackup()));
+  const before = await store.listCharacters();
+
+  await store.resetDatabase();
+  await store.insertCharacter('Stray', card('Stray'));
+  await store.saveSettings({ apiKey: 'sk-this-browser' });
+  await store.importBackup(backup);
+
+  const after = await store.listCharacters();
+  assert.deepEqual(after, before, 'the same characters, ids and all');
+  assert.equal((await store.getMessage(msg.id))?.swipes[0], 'Hi.');
+  assert.equal((await store.getRecord(msg.id, 0))?.reasoning, 'hmm');
+  assert.equal((await store.getMemory(chat.id)).summary, 'Remembered.');
+  assert.equal((await store.listLorebooks())[0].name, 'World');
+  assert.ok(await store.getImage(c.avatar!), 'pictures come back too');
+  assert.equal((await store.getSettings()).apiKey, 'sk-this-browser', 'a backup without a key keeps this one');
+
+  // New rows carry on after the restored ids.
+  const next = await store.insertCharacter('After', card('After'));
+  assert.ok(next.id > Math.max(...before.map((b) => b.id)));
+});
+
+test('something that is not a backup is refused', async () => {
+  await assert.rejects(() => store.importBackup({ hello: 1 }), /not a Fabled backup/);
 });

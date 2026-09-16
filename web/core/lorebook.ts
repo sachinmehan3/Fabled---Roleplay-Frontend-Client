@@ -4,72 +4,9 @@
 // The engine here is pure - it takes books, a conversation and the per-chat
 // timed state, and returns what to insert plus the state to save. That keeps
 // every rule below testable without a model or a server.
-export type EntryMode = 'constant' | 'selective';
-export type SecondaryLogic = 'and_any' | 'and_all' | 'not_any' | 'not_all';
-export type EntryPosition = 'before_char' | 'after_char' | 'at_depth';
-export type EntryRole = 'system' | 'user' | 'assistant';
+import type { LoreEntry, Lorebook } from '../types.ts';
 
-export interface LoreEntry {
-  id: string;
-  /** A label for you, never sent to the model. */
-  title: string;
-  content: string;
-  enabled: boolean;
-  /** Constant entries are always in; selective ones wait to be mentioned. */
-  mode: EntryMode;
-  keys: string[];
-  secondaryKeys: string[];
-  logic: SecondaryLogic;
-
-  // Placement
-  position: EntryPosition;
-  /** Messages from the end, for position 'at_depth'. */
-  depth: number;
-  role: EntryRole;
-  /** Higher order is inserted later, nearer the model's attention. */
-  order: number;
-
-  // Matching overrides; null means "use the book's setting"
-  caseSensitive: boolean | null;
-  matchWholeWords: boolean | null;
-  scanDepth: number | null;
-
-  // Chance and grouping
-  probability: number;
-  group: string;
-  groupWeight: number;
-  prioritizeInclusion: boolean;
-
-  // Recursion
-  /** Cannot be activated by another entry's content. */
-  excludeRecursion: boolean;
-  /** Once in, does not go on to activate anything else. */
-  preventRecursion: boolean;
-  /** Never matches the chat itself, only other entries' content. */
-  delayUntilRecursion: boolean;
-
-  // Timed effects, counted in messages
-  sticky: number;
-  cooldown: number;
-  delay: number;
-}
-
-export interface Lorebook {
-  id: number;
-  name: string;
-  enabled: boolean;
-  /** Empty means every character; otherwise only these. */
-  characterIds: number[];
-  scanDepth: number;
-  caseSensitive: boolean;
-  matchWholeWords: boolean;
-  /** 1 disables recursion, 2 allows entries to activate entries, and so on. */
-  maxRecursionSteps: number;
-  /** Hard ceiling on the tokens all of a chat's entries may take. */
-  budget: number;
-  entries: LoreEntry[];
-  created_at: number;
-}
+export type { EntryMode, EntryPosition, EntryRole, LoreEntry, Lorebook, SecondaryLogic } from '../types.ts';
 
 /** Per-chat timed state, keyed `<bookId>:<entryId>`. Values are message counts. */
 export interface LoreState {

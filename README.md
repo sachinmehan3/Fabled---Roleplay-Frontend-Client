@@ -19,9 +19,8 @@ A minimal, hackable roleplay chat frontend in the spirit of SillyTavern.
 - **Chat memory:** when older messages fall out of the window they are summarised into a rolling summary, sent with every reply and editable by hand
 - **Generation details:** every reply keeps a record - the prompt exactly as sent, how much of the history fit, token counts, timings and why the model stopped
 - **Safe markdown:** raw HTML from cards or models is escaped, and only http(s)/mailto links are allowed. `"dialogue"` is highlighted and `*actions*` are italicised
-- **Private API key:** it's stored server-side and never sent to the browser
-- **Signed in by password:** every API route, avatars included, needs a session; the first run is claimed with a one-time code from the server console
-- **Plain-file storage:** JSON and JSONL you can read, diff and edit by hand - no database
+- **Local-first:** no server and no accounts. Characters, chats, lorebooks, pictures, settings and your API key stay in your own browser, and messages go straight from the page to the provider you chose
+- **Backups:** export everything to one file and restore it in any browser; the API key is left out unless you ask for it
 
 ## Stack
 
@@ -29,8 +28,8 @@ A minimal, hackable roleplay chat frontend in the spirit of SillyTavern.
 |---|---|
 | UI | React 19 + TypeScript, Vite, **Tailwind CSS v4**, **shadcn/ui** (new-york style, zinc + violet), lucide icons, sonner toasts |
 | Markdown | `marked` with custom safe renderers |
-| Server | Node 22.18+ (`node:http`, native TS type stripping); **no runtime dependencies** |
-| Storage | JSON + JSONL files under `data/` (see below) |
+| Storage | IndexedDB in the browser, through [`idb`](https://github.com/jakearchibald/idb) |
+| Server | none - the build is static files |
 
 The UI has light and dark themes. Use the sun/moon button to switch; dark is the default. To change the look, edit the colors in `web/index.css`. You can use the [shadcn theme builder](https://ui.shadcn.com/themes) and paste its `:root` / `.dark` blocks there.
 
@@ -42,88 +41,70 @@ npx shadcn@latest add sheet select command
 
 ## Run it
 
-Requires **Node 22.18 or newer** (Node 24 LTS recommended).
+Requires **Node 22.18 or newer** to build (Node 24 LTS recommended). The app itself needs only a browser.
 
 ```bash
 npm install
-npm run dev          # server on :3001 + Vite on :5173
+npm run dev          # http://localhost:5173
 ```
 
-Open http://localhost:5173, then:
+Then:
 
-1. Enter the setup code the server printed, and choose a password.
-2. Pick a provider in **Settings**, add your key if the provider needs one, then click **Fetch models** and choose a model.
-3. A starter character, Sable Emberwright, is already waiting on your first run. Add your own with **New character**, or the upload button beside it to import a card (`.png` or `.json`). Samples are in `samples/`.
-4. Fill in your own name and persona under **Settings -> User**, then start chatting.
+1. Pick a provider in **Settings**, add your key if the provider needs one, then click **Fetch models** and choose a model.
+2. A starter character, Sable Emberwright, is already waiting. Add your own with **New character**, or the upload button beside it to import a card (`.png` or `.json`). Samples are in `samples/`.
+3. Fill in your own name and persona under **Settings -> User**, then start chatting.
 
-Production build (one process serves both the UI and the API):
+## Hosting
 
 ```bash
-npm run build
-npm start            # http://localhost:3001
+npm run build        # static files in dist/
+npm run preview      # try the build at http://localhost:4173
 ```
 
-The server only listens on `127.0.0.1` by default, because it holds your API key. Other environment variables: `HOST`, `PORT` and `RP_DATA_DIR`.
-
-## Signing in
-
-On the first run the server prints a setup code:
-
-```
-----------------------------------------------------
-  No password is set yet.
-  Open Fabled and enter this setup code:
-
-      2F63195AF51A
-
-  It works once, and changes if the server restarts.
-----------------------------------------------------
-```
-
-Open Fabled, enter that code and choose a password. The code is there so that
-whoever reaches a freshly started server first cannot claim it; only someone who
-can see the console can.
-
-How it is protected:
-
-- The password is stored as a **scrypt** hash in `data/auth.json` and checked in constant time.
-- Sessions are random 256-bit tokens in an `HttpOnly; SameSite=Strict` cookie that lasts 30 days. The server keeps only a SHA-256 of each one in `data/sessions.json`, so a copy of the data folder cannot be used to sign in.
-- **Every `/api` route requires a session** except status, sign-in and setup. The check sits in front of the router, so a route added later cannot forget it.
-- Five failed sign-ins lock that address out for fifteen minutes.
-- Writes from another site are refused by an `Origin` check, behind the SameSite cookie. Behind a reverse proxy the public host is read from `X-Forwarded-Host`.
-- Responses carry `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` and `Cross-Origin-Opener-Policy`.
-
-Change the password in **Settings -> User**; doing so signs out every other device. Sign out from the sidebar.
-
-**Forgot it?** Stop the server, delete `data/auth.json` and `data/sessions.json`, and start it again. You will get a new setup code. Your characters and chats are untouched.
-
-To reach Fabled from your other devices, run it behind [Tailscale](https://tailscale.com) with `HOST=0.0.0.0` (or your tailnet address) and open it at that machine's tailnet name. Only devices on your tailnet can reach it, and the password guards it on top of that.
-
-Not covered: there is one account, not several, and plain HTTP is not encrypted between your browser and the server - over Tailscale that link is already encrypted, but on any other network put HTTPS in front before exposing it.
+`dist/` can go on any static host: GitHub Pages, Cloudflare Pages, Netlify, Vercel, or a plain web server. There is nothing to run and nothing to keep secret on the host - every visitor brings their own key, and their data never reaches it.
 
 ## Your data
 
-Everything is kept in plain files under `data/` (or `RP_DATA_DIR`), so you can read it, grep it, diff it in git, or edit it in any text editor while the server is stopped:
+Everything lives in this browser's IndexedDB, in a database called `fabled`:
 
-```
-data/
-  settings.json              provider, model, sampling, your user card - and your API key
-  characters.json            every character card
-  chats.json                 one line per chat: which character, title, message count
-  counters.json              the next id for each kind of record
-  chats/12.jsonl             the chat log - one JSON message per line, appended as you talk
-  chats/12.prompts.jsonl     the prompt and thinking behind each reply, appended and never rewritten
-  chats/12.memory.json       what that chat remembers: the summary and how far it covers
-  chats/12.lore.json         which lorebook entries are sticky or cooling down in that chat
-  lorebooks.json             every lorebook and its entries
-  avatars/                   character and user pictures
-```
+| Store | Holds |
+|---|---|
+| `kv` | settings (including the API key), and whether the starter character was added |
+| `characters` | cards, and the id of each avatar |
+| `chats` | title, character, and the chat it was branched from |
+| `messages` | swipes and a light generation record per swipe |
+| `records` | the prompt and thinking behind each swipe, kept apart because they are large |
+| `memory` | each chat's rolling summary |
+| `lore_state` | which lorebook entries are sticky or cooling down in each chat |
+| `lorebooks` | books and their entries |
+| `images` | avatars and chat backgrounds |
 
-Prompts are kept beside the log rather than inside it. They are by far the largest thing stored, and the log itself is rewritten whenever you edit or swipe a message - keeping them apart leaves the chat log small and readable.
+What that means in practice:
 
-Writes go through a temp file and a rename, so an interrupted write can't leave a half-written file behind. `settings.json` holds your API key in plain text, exactly as the old database did - it never leaves the machine, but don't commit it.
+- **Nothing is shared between browsers or devices.** Move with **Settings -> Data -> Export backup**, then **Restore from backup** on the other side.
+- **Browsers can clear site data.** Fabled asks for persistent storage; if the browser declines, the Data tab says so. Safari removes data from sites you have not visited for a while unless the site is added to the home screen. Export a backup now and then.
+- **Backups leave the API key out** unless you tick the box. A backup that has it gives the key to whoever holds the file.
+- **Clear all data** on the Data tab removes everything, the key included.
 
-**Coming from the SQLite version?** Leave your old `data/rp.db` where it is and start the server: it imports characters, chats, messages and settings into the new files on first run, keeping the original timestamps, and never writes to the database. Once you've checked everything arrived, delete `rp.db*` and `server/migrate-sqlite.ts`.
+## Security
+
+With no server, the thing to protect against is a script on the page, which could read the key and every chat. So:
+
+- Markdown from cards and models is sanitised: raw HTML is escaped, and only http(s)/mailto links are allowed.
+- The build ships a Content Security Policy that lets the page run only its own scripts. `connect-src` stays open because the provider is whatever URL you type.
+- The key is sent only to the provider URL in Settings. OpenRouter's attribution headers are sent only to OpenRouter.
+
+## Providers and CORS
+
+The browser talks to the provider directly, so the provider must allow requests from web pages (CORS). OpenRouter and OpenAI do.
+
+Local servers usually need it switched on:
+
+- **Ollama:** set `OLLAMA_ORIGINS` to the site's origin (or `*`) and restart it.
+- **LM Studio:** turn on *Enable CORS* in the server settings.
+- **KoboldCpp / llama.cpp:** both allow it by default in recent versions.
+
+A page served over HTTPS may also be blocked from reaching `http://localhost` by the browser. Running Fabled locally with `npm run dev` or `npm run preview` avoids that. If a connection fails, the error says when CORS is the likely cause.
 
 ## Tests
 
@@ -135,82 +116,51 @@ npm run check     # both
 
 The suite covers the parts where a quiet bug does real damage: the prompt
 builder's context budget and trimming, Tavern card normalization and the PNG
-`tEXt` reader, the file store (including prompt sidecars, cascading deletes and
-a torn JSONL line), and the markdown sanitiser - which is the only thing between
+`tEXt` reader, the IndexedDB store (run on `fake-indexeddb`: records per swipe,
+cascading deletes, and backups that restore everything and leave the key out),
+and the markdown sanitiser - which is the only thing between
 untrusted card or model text and `dangerouslySetInnerHTML`.
 
 ## Layout
 
 ```
 tests/              node:test suites for the logic above
-server/
-  index.ts          routes, the sign-in gate, SSE generation endpoint
-  auth.ts           passwords, sessions, setup code, rate limiting
-  seed.ts           adds the starter character on a first run
-  lorebook.ts       World Info: matching, recursion, groups, timed effects, budget
-  lorebook-import.ts  reads a SillyTavern World Info export
-  memory.ts         folds forgotten messages into a rolling summary
-  store.ts          JSON/JSONL storage, settings, generation records
-  migrate-sqlite.ts one-time import of an older data/rp.db
-  cards.ts          PNG tEXt chunk reader, card normalization
-  prompt.ts         prompt builder, macros, context trimming
-  post-process.ts   reshapes the finished prompt for fussy backends
-  llm.ts            OpenAI-compatible streaming client
+public/
+  theme-init.js     applies the saved theme before the first paint
 web/
   App.tsx           app state + layout
-  api.ts            REST client + SSE reader
+  api.ts            everything the UI asks for, and generation, answered in the browser
+  types.ts          shared types
   markdown.ts       safe markdown renderer
   index.css         Tailwind + theme tokens + chat typography
-  hooks/            use-theme (light/dark), use-confirm (promise-based AlertDialog)
+  core/
+    db.ts             IndexedDB storage, settings, generation records, backups
+    lorebook.ts       World Info: matching, recursion, groups, timed effects, budget
+    lorebook-import.ts  reads a SillyTavern World Info export
+    memory.ts         folds forgotten messages into a rolling summary
+    cards.ts          PNG tEXt chunk reader, card normalization
+    prompt.ts         prompt builder, macros, context trimming
+    post-process.ts   reshapes the finished prompt for fussy backends
+    llm.ts            OpenAI-compatible streaming client
+  hooks/            use-theme, use-confirm, use-image-url (stored pictures as object URLs)
   components/
     app-sidebar.tsx     characters, search, chats, settings, theme toggle
-    chat-view.tsx       header, message list, composer, profile dialogs
+    chat-view.tsx       message list, composer, profile dialogs
     message-item.tsx    message, hover toolbar, swipes, inline edit
     character-dialog.tsx  create or edit a card (profile / chat / prompt tabs)
     profile-dialog.tsx    the expanded card behind an avatar
     generation-dialog.tsx what happened when a reply was generated
     avatar-picker.tsx     shared picture picker for cards and the user
-    settings-dialog.tsx connection / user / generation / prompt tabs
+    settings-dialog.tsx connection / user / customize / generation / prompt / data tabs
+    data-panel.tsx      backup, restore, clear all, storage status
     empty-state.tsx     first-run checklist
     ui/                 shadcn/ui components
 ```
 
-## API
-
-| Method | Path | |
-|---|---|---|
-| GET | `/api/auth/status` | public: whether a password exists and you are signed in |
-| POST | `/api/auth/setup` | public: `{code, password}` on the first run |
-| POST | `/api/auth/login` | public: `{password}` |
-| POST | `/api/auth/logout` | |
-| POST | `/api/auth/password` | `{current, next}`; signs out every other device |
-| GET/PUT | `/api/settings` | the key is write-only |
-| GET | `/api/models` | proxied from the provider |
-| GET | `/api/characters` | |
-| POST | `/api/characters/import` | raw PNG/JSON bytes in the body |
-| POST | `/api/characters` | a card as JSON, from the in-app editor |
-| PUT/DELETE | `/api/characters/:id` | |
-| POST/DELETE | `/api/characters/:id/avatar` | raw image bytes (PNG/JPEG/WebP/GIF) |
-| POST/DELETE | `/api/user/avatar` | the same, for your user card |
-| GET | `/api/user/vision` | whether the current model can read images (probed once, then cached) |
-| POST | `/api/user/describe` | describes your picture for the persona field |
-| GET/POST | `/api/characters/:id/chats` | |
-| POST | `/api/chats/:id/branch` | `{messageId}`: copies the chat up to that message into a new one |
-| DELETE | `/api/chats/:id` | |
-| GET/POST | `/api/chats/:id/messages` | |
-| PATCH/DELETE | `/api/messages/:id` | `{content}` or `{swipe_index}` |
-| POST | `/api/chats/:id/messages/delete` | `{ids}`: removes several at once |
-| GET | `/api/messages/:id/meta/:swipe` | the generation record for one version, with its prompt |
-| GET/POST | `/api/lorebooks` | list, or make a new one |
-| GET/PUT/DELETE | `/api/lorebooks/:id` | |
-| POST | `/api/lorebooks/import` | raw JSON: ours, a SillyTavern export, or a V2 `character_book` |
-| GET/PUT/DELETE | `/api/chats/:id/memory` | read, edit or forget what a chat remembers |
-| POST | `/api/chats/:id/memory/fold` | summarise now instead of waiting for an overflow |
-| POST | `/api/chats/:id/generate` | `{mode: "new" \| "swipe" \| "redo", messageId?}` → SSE `{delta}` `{reasoning}` … `{done, message}` |
-
 ## Next steps
 
-- **Accurate token counts:** replace `estimateTokens` in `server/prompt.ts` with a real tokenizer. Generation details already show the provider's own counts next to the estimate, so you can see how far off it is
+- **Accurate token counts:** replace `estimateTokens` in `web/core/prompt.ts` with a real tokenizer. Generation details already show the provider's own counts next to the estimate, so you can see how far off it is
 - **PNG card export:** write the edited card back into a `chara` chunk so it can be shared
 - **Multiple personas, group chats, regex scripts, presets, themes**
-- **Native Claude / Gemini adapters** alongside `server/llm.ts`
+- **Native Claude / Gemini adapters** alongside `web/core/llm.ts`
+- **Sync between devices**, for example through a file in the user's own cloud storage

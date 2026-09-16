@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { activateLore, entryMatches, matchesKey, EMPTY_ENTRY, type LoreEntry, type Lorebook } from '../server/lorebook.ts';
-import { importLorebook } from '../server/lorebook-import.ts';
+import { activateLore, entryMatches, matchesKey, EMPTY_ENTRY, type LoreEntry, type Lorebook } from '../web/core/lorebook.ts';
+import { importLorebook } from '../web/core/lorebook-import.ts';
 
 const estimateTokens = (t: string) => Math.ceil(t.length / 3.5) + 4;
 

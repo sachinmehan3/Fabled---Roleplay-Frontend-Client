@@ -16,6 +16,7 @@
     "verbatimModuleSyntax": true,
     "erasableSyntaxOnly": true,
     "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
     "types": [
       "node"
     ],
@@ -27,7 +28,6 @@
   },
   "include": [
     "web",
-    "server",
     "tests",
     "vite.config.ts"
   ]

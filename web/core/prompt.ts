@@ -1,13 +1,9 @@
 // Prompt builder: turns card + settings + chat history into an OpenAI-style message list,
 // trimming the oldest history so everything fits in the context window.
-import type { CharacterCard } from './cards.ts';
-import type { ChatMemory, Settings } from './store.ts';
+import type { CharacterCard, ChatMemory, PromptMessage, Settings } from '../types.ts';
 import type { ActivatedEntry } from './lorebook.ts';
 
-export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
+export type ChatMessage = PromptMessage;
 
 /**
  * Rough token estimate (~3.5 chars per token for English).

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { ImagePlus, X } from 'lucide-react';
-import { avatarUrl } from '@/components/character-avatar';
+import { useImageUrl } from '@/hooks/use-image-url';
 import { Button } from '@/components/ui/button';
 
 interface Props {
-  /** Background file already stored on the server. */
+  /** Id of the picture already saved in this browser. */
   file: string | null;
   /** Newly picked image, not uploaded yet. */
   pending: File | null;
@@ -20,7 +20,8 @@ export function BackgroundPicker({ file, pending, cleared, dim, onChange }: Prop
   const preview = useMemo(() => (pending ? URL.createObjectURL(pending) : null), [pending]);
   useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview]);
 
-  const shown = preview ?? (cleared ? null : avatarUrl(file));
+  const stored = useImageUrl(file);
+  const shown = preview ?? (cleared ? null : stored);
 
   return (
     <div className="grid gap-3">

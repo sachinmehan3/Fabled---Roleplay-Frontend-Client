@@ -16,8 +16,10 @@ export interface CharacterCard {
 export interface Character {
   id: number;
   name: string;
+  /** Id of the picture in the browser's image store. */
   avatar: string | null;
   card: CharacterCard;
+  created_at?: number;
   /** How many chats you have with them. */
   chats?: number;
   /** Only on import: the lorebook that came inside the card, if any. */
@@ -186,5 +188,6 @@ export interface Settings {
   messageBubbles: boolean;
   chatBackground: string;
   chatBackgroundDim: number;
-  hasApiKey: boolean;
+  /** Kept in this browser only, and sent nowhere but the provider. */
+  apiKey: string;
 }

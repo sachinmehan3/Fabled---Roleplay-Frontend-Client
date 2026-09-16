@@ -2,7 +2,7 @@
 // content stream, split across chunks at arbitrary points.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createThinkSplitter } from '../server/llm.ts';
+import { createThinkSplitter } from '../web/core/llm.ts';
 
 /** Feed a stream through the splitter and collect prose and thinking separately. */
 function run(chunks: string[]) {

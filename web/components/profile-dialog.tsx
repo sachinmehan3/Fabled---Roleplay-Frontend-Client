@@ -9,7 +9,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { avatarUrl, CharacterAvatar } from '@/components/character-avatar';
+import { CharacterAvatar } from '@/components/character-avatar';
+import { useImageUrl } from '@/hooks/use-image-url';
 
 export interface ProfileField {
   label: string;
@@ -30,7 +31,7 @@ interface Props {
 
 /** The expanded card behind an avatar: full picture, name, and the card's text fields. */
 export function ProfileDialog({ open, onOpenChange, name, avatar, subtitle, tags, fields, editLabel, onEdit }: Props) {
-  const url = avatarUrl(avatar);
+  const url = useImageUrl(avatar);
   const filled = fields.filter((f) => f.text.trim());
 
   return (

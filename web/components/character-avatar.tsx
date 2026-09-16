@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { useImageUrl } from '@/hooks/use-image-url';
 
 /**
  * Twelve hues around the wheel. The tint is applied in index.css at a low chroma,
@@ -21,9 +22,6 @@ export function initials(name: string) {
   return (first + last).toUpperCase();
 }
 
-/** URL for an avatar stored on the server. */
-export const avatarUrl = (file?: string | null) => (file ? `/api/avatars/${file}` : null);
-
 export function CharacterAvatar({
   name,
   file,
@@ -34,7 +32,7 @@ export function CharacterAvatar({
   label,
 }: {
   name: string;
-  /** File name in data/avatars. */
+  /** Id of a picture in the browser's image store. */
   file?: string | null;
   /** Any other image URL (a local preview, say); wins over `file`. */
   src?: string | null;
@@ -44,7 +42,8 @@ export function CharacterAvatar({
   onClick?: () => void;
   label?: string;
 }) {
-  const url = src ?? avatarUrl(file);
+  const stored = useImageUrl(src ? null : file);
+  const url = src ?? stored;
   const avatar = (
     <Avatar
       className={cn('rp-avatar size-9 rounded-lg', className)}

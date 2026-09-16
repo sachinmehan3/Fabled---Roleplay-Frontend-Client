@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { isPng, normalizeCard, parseCardFile, readPngText } from '../server/cards.ts';
+import { isPng, normalizeCard, parseCardFile, readPngText } from '../web/core/cards.ts';
 
 test('a flat V1 card is read from the top level', () => {
   const card = normalizeCard({ name: 'Lyra', description: 'A mapmaker.', first_mes: 'Hello.' });

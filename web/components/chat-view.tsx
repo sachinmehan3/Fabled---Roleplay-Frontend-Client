@@ -13,7 +13,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { avatarUrl, CharacterAvatar } from '@/components/character-avatar';
+import { CharacterAvatar } from '@/components/character-avatar';
+import { useImageUrl } from '@/hooks/use-image-url';
 import { MessageItem } from '@/components/message-item';
 import { ProfileDialog } from '@/components/profile-dialog';
 import { GenerationDialog } from '@/components/generation-dialog';
@@ -120,8 +121,6 @@ export function ChatView({
       if (!controller.signal.aborted) errorToast(e);
     } finally {
       abortRef.current = null;
-      // Small delay after Stop so the server can save the partial reply.
-      if (controller.signal.aborted) await new Promise((r) => setTimeout(r, 150));
       await reload().catch(() => {});
       setStreaming(null);
       onMessagesChanged();
@@ -247,7 +246,7 @@ export function ChatView({
   const macros = (t: string) => applyMacros(t, character.name, settings.userName);
   const { card } = character;
   const userAvatar = settings.userAvatar || null;
-  const background = avatarUrl(settings.chatBackground);
+  const background = useImageUrl(settings.chatBackground);
   const canSend = !!input.trim() || last?.role === 'user';
 
   return (

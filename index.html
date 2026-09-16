@@ -5,20 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Fabled</title>
     <link rel="icon" href="/fabled-icon.svg" />
-    <script>
-      // Apply the saved theme before the first paint.
-      try {
-        var t = localStorage.getItem('rp-theme');
-        if (t === 'fabled') t = 'default'; // what this theme used to be called
-        if (t !== 'light' && t !== 'dark' && t !== 'default') t = 'default';
-        var c = document.documentElement.classList;
-        c.toggle('dark', t !== 'light');
-        c.toggle('theme-default', t === 'default');
-        c.toggle('theme-dark', t === 'dark');
-        c.toggle('theme-light', t === 'light');
-        document.documentElement.style.colorScheme = t === 'light' ? 'light' : 'dark';
-      } catch (e) {}
-    </script>
+    <script src="/theme-init.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

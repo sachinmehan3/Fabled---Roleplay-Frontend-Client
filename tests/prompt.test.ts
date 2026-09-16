@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyMacros, buildPrompt, estimateTokens } from '../server/prompt.ts';
-import type { Settings } from '../server/store.ts';
-import type { CharacterCard } from '../server/cards.ts';
+import { applyMacros, buildPrompt, estimateTokens } from '../web/core/prompt.ts';
+import type { Settings } from '../web/types.ts';
+import type { CharacterCard } from '../web/core/cards.ts';
 
 const settings = (over: Partial<Settings> = {}): Settings => ({
   apiBase: 'http://127.0.0.1:11434/v1',
@@ -137,7 +137,7 @@ test('a system prompt larger than the window keeps no history instead of crashin
   assert.equal(messages.length, 1, 'the system message is still sent');
 });
 
-const memory = (over: Partial<import('../server/store.ts').ChatMemory> = {}) => ({
+const memory = (over: Partial<import('../web/types.ts').ChatMemory> = {}) => ({
   version: 1 as const,
   summary: 'Kai admitted forging the eastern coastline map.',
   coveredThrough: 10,

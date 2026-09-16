@@ -3,10 +3,10 @@
 // This never runs before a reply - it runs after one is saved, on the messages
 // that have just fallen out of the context window. If it fails, the chat is
 // unaffected; the next fold picks up the same messages again.
-import type { CharacterCard } from './cards.ts';
+import type { CharacterCard, ChatMemory, Message, Settings } from '../types.ts';
 import { applyMacros } from './prompt.ts';
 import { completeChat } from './llm.ts';
-import { getMemory, saveMemory, type ChatMemory, type MessageRow, type Settings } from './store.ts';
+import { getMemory, saveMemory } from './db.ts';
 
 const MAX_SUMMARY_CHARS = 2000;
 /** Never send an unbounded transcript to the summariser. */
@@ -45,7 +45,7 @@ export function cleanSummary(raw: string): string {
 }
 
 /** The transcript handed to the summariser, oldest first and length-capped. */
-function transcript(messages: MessageRow[], charName: string, userName: string): string {
+function transcript(messages: Message[], charName: string, userName: string): string {
   const lines = messages.map((m) => {
     const who = m.role === 'user' ? userName : charName;
     return `[${who}]: ${applyMacros(m.swipes[m.swipe_index] ?? '', charName, userName)}`;
@@ -64,11 +64,11 @@ export async function foldMemory(
   chatId: number,
   card: CharacterCard,
   settings: Settings,
-  messages: MessageRow[],
+  messages: Message[],
 ): Promise<ChatMemory | null> {
   if (inFlight.has(chatId)) return null;
 
-  const current = getMemory(chatId);
+  const current = await getMemory(chatId);
   const fresh = messages.filter((m) => m.id > current.coveredThrough && (m.swipes[m.swipe_index] ?? '').trim());
   if (!fresh.length) return null;
 
@@ -99,7 +99,7 @@ export async function foldMemory(
       folds: current.folds + 1,
       updatedAt: Date.now(),
     };
-    saveMemory(chatId, updated);
+    await saveMemory(chatId, updated);
     return updated;
   } finally {
     inFlight.delete(chatId);

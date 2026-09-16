@@ -34,6 +34,7 @@ import { Select } from '@/components/ui/select';
 import { BackgroundPicker } from '@/components/background-picker';
 import { Checkbox } from '@/components/ui/select';
 import { Field } from '@/components/form-field';
+import { DataPanel } from '@/components/data-panel';
 
 const PRESETS: { label: string; apiBase: string; needsKey?: boolean }[] = [
   { label: 'OpenRouter', apiBase: 'https://openrouter.ai/api/v1', needsKey: true },
@@ -100,7 +101,7 @@ const PROMPT_FORMATS: { value: PromptFormat; label: string; hint: string }[] = [
   },
 ];
 
-export type SettingsTab = 'connection' | 'user' | 'customize' | 'generation' | 'prompt';
+export type SettingsTab = 'connection' | 'user' | 'customize' | 'generation' | 'prompt' | 'data';
 
 // Fetched model lists are remembered per provider, so they survive a reload
 // instead of making you press "Fetch models" again every time.
@@ -179,7 +180,6 @@ function SliderField(props: {
 
 export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'connection' }: Props) {
   const [form, setForm] = useState(settings);
-  const [apiKey, setApiKey] = useState('');
   const [models, setModels] = useState<string[]>([]);
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const [saving, setSaving] = useState(false);
@@ -194,22 +194,18 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
     ok: false,
   });
   const [describing, setDescribing] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [changingPassword, setChangingPassword] = useState(false);
 
   // Reset the form each time the dialog opens (not when settings change while it's open).
   useEffect(() => {
     if (open) {
       setForm(settings);
-      setApiKey('');
       setStatus({ kind: 'idle' });
       setUserAvatar(null);
       setUserAvatarCleared(false);
       setBackground(null);
       setBackgroundCleared(false);
 
-      // One cheap look, cached per model by the server, so the button below
+      // One cheap look, remembered per model until reload, so the button below
       // knows whether it can work before it is pressed.
       if (settings.model && settings.userAvatar) {
         setVision({ checking: true, ok: false });
@@ -274,9 +270,7 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
   };
 
   const persist = async () => {
-    const { hasApiKey: _ignored, ...rest } = form;
-    const saved = await api.saveSettings({ ...rest, apiKey: apiKey || undefined });
-    setApiKey('');
+    const saved = await api.saveSettings(form);
     setForm(saved);
     return saved;
   };
@@ -284,7 +278,7 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
   const fetchModels = async () => {
     setStatus({ kind: 'loading' });
     try {
-      const saved = await persist(); // the server needs the URL/key to query the provider
+      const saved = await persist();
       onSaved(saved);
       const { models } = await api.listModels();
       cacheModels(saved.apiBase, models);
@@ -292,7 +286,7 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
       setStatus(
         models.length
           ? { kind: 'ok', text: `Connected — found ${models.length} models` }
-          : { kind: 'ok', text: 'Connected, but the server listed no models' },
+          : { kind: 'ok', text: 'Connected, but the provider listed no models' },
       );
     } catch (e) {
       setStatus({ kind: 'error', text: (e as Error).message });
@@ -313,20 +307,6 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
       });
     } catch (e) {
       setStatus({ kind: 'error', text: (e as Error).message });
-    }
-  };
-
-  const changePassword = async () => {
-    setChangingPassword(true);
-    try {
-      await api.changePassword(currentPassword, newPassword);
-      setCurrentPassword('');
-      setNewPassword('');
-      toast.success('Password changed. Every other device has been signed out.');
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setChangingPassword(false);
     }
   };
 
@@ -380,6 +360,7 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
               <TabsTrigger value="customize">Customize</TabsTrigger>
               <TabsTrigger value="generation">Generation</TabsTrigger>
               <TabsTrigger value="prompt">Prompt</TabsTrigger>
+              <TabsTrigger value="data">Data</TabsTrigger>
             </TabsList>
           </div>
 
@@ -430,13 +411,9 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
             <Field
               id="api-key"
               label="API key"
-              hint={
-                form.hasApiKey
-                  ? 'A key is saved. Leave blank to keep it.'
-                  : preset?.needsKey
-                    ? `${preset.label} requires a key.`
-                    : 'Not needed for most local servers.'
-              }
+              hint={`${
+                preset?.needsKey ? `${preset.label} requires a key. ` : ''
+              }Kept in this browser only, and sent to nobody but the provider above.`}
             >
               <div className="relative">
                 <KeyRound className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
@@ -444,9 +421,9 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
                   id="api-key"
                   type="password"
                   className="pl-8"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={form.hasApiKey ? '••••••••••••' : 'sk-…'}
+                  value={form.apiKey}
+                  onChange={(e) => set('apiKey', e.target.value)}
+                  placeholder={preset?.needsKey ? 'sk-…' : 'Not needed for most local servers'}
                   autoComplete="off"
                 />
               </div>
@@ -568,44 +545,6 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
               </span>
             </div>
 
-            <div className="grid gap-3 border-t pt-5">
-              <div>
-                <Label>Password</Label>
-                <p className="text-muted-foreground mt-1 text-xs">
-                  Changing it signs out every other device, so it is also how you end a session you have lost track of.
-                </p>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Input
-                  type="password"
-                  placeholder="Current password"
-                  aria-label="Current password"
-                  autoComplete="current-password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                />
-                <Input
-                  type="password"
-                  placeholder="New password"
-                  aria-label="New password"
-                  autoComplete="new-password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                />
-              </div>
-              <div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={changePassword}
-                  disabled={changingPassword || !currentPassword || newPassword.length < 8}
-                >
-                  {changingPassword && <LoaderCircle className="animate-spin" />}
-                  Change password
-                </Button>
-              </div>
-            </div>
           </TabsContent>
 
           {/* How the chat itself looks. */}
@@ -740,6 +679,10 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
             <p className="text-muted-foreground text-xs">
               Your name and persona moved to the <span className="text-foreground font-medium">User</span> tab.
             </p>
+          </TabsContent>
+
+          <TabsContent value="data" className="space-y-6 px-6 py-5">
+            <DataPanel />
           </TabsContent>
         </Tabs>
 

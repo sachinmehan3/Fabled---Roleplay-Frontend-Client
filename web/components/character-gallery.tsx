@@ -11,7 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { avatarUrl, hueFor, initials } from '@/components/character-avatar';
+import { hueFor, initials } from '@/components/character-avatar';
+import { useImageUrl } from '@/hooks/use-image-url';
 
 interface Props {
   open: boolean;
@@ -84,7 +85,6 @@ export function CharacterGallery({
           ) : (
             <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {filtered.map((c) => {
-                const url = avatarUrl(c.avatar);
                 return (
                   <li key={c.id} className="group relative">
                     <button
@@ -100,16 +100,7 @@ export function CharacterGallery({
                           c.id === selectedId && 'ring-primary ring-2',
                         )}
                       >
-                        {url ? (
-                          <img src={url} alt="" className="size-full object-cover" />
-                        ) : (
-                          <div
-                            className="rp-avatar-fallback flex size-full items-center justify-center text-4xl"
-                            style={{ '--avatar-hue': `${hueFor(c.name)}deg` } as CSSProperties}
-                          >
-                            {initials(c.name)}
-                          </div>
-                        )}
+                        <Portrait id={c.avatar} name={c.name} />
                         <span className="absolute bottom-1.5 left-1.5 rounded-md bg-black/55 px-1.5 py-0.5 text-[11px] font-medium text-white backdrop-blur-sm">
                           {c.chats ?? 0} {c.chats === 1 ? 'chat' : 'chats'}
                         </span>
@@ -148,5 +139,18 @@ export function CharacterGallery({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function Portrait({ id, name }: { id: string | null; name: string }) {
+  const url = useImageUrl(id);
+  if (url) return <img src={url} alt="" className="size-full object-cover" />;
+  return (
+    <div
+      className="rp-avatar-fallback flex size-full items-center justify-center text-4xl"
+      style={{ '--avatar-hue': `${hueFor(name)}deg` } as CSSProperties}
+    >
+      {initials(name)}
+    </div>
   );
 }

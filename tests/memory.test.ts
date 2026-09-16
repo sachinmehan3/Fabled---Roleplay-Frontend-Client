@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanSummary } from '../server/memory.ts';
+import { cleanSummary } from '../web/core/memory.ts';
 
 test('a plain summary is kept as written', () => {
   assert.equal(cleanSummary('  Kai and Lyra argued, then made peace.  '), 'Kai and Lyra argued, then made peace.');

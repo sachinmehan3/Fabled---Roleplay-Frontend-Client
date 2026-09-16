@@ -5,7 +5,7 @@ import { CharacterAvatar } from '@/components/character-avatar';
 
 interface Props {
   name: string;
-  /** Avatar file already stored on the server. */
+  /** Id of the picture already saved in this browser. */
   file: string | null;
   /** Newly picked image, not uploaded yet. */
   pending: File | null;

@@ -2,7 +2,8 @@
 //
 // Their file is `{ entries: { "0": {...}, "1": {...} } }`, with numbers where we
 // use names. Anything unrecognised falls back to our own defaults.
-import { EMPTY_ENTRY, type EntryPosition, type EntryRole, type LoreEntry, type Lorebook, type SecondaryLogic } from './lorebook.ts';
+import type { EntryPosition, EntryRole, LoreEntry, Lorebook, SecondaryLogic } from '../types.ts';
+import { EMPTY_ENTRY } from './lorebook.ts';
 
 const LOGIC: Record<number, SecondaryLogic> = { 0: 'and_any', 1: 'not_all', 2: 'not_any', 3: 'and_all' };
 // 0/1 are before and after the character; 2 and 3 are Author's Note, which we
