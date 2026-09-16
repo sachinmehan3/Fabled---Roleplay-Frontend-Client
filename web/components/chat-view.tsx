@@ -395,7 +395,11 @@ export function ChatView({
             </DropdownMenuTrigger>
             <DropdownMenuContent side="top" align="start" className="w-48">
               <DropdownMenuItem
-                onSelect={() => safe(() => runGeneration('impersonate'))()}
+                // If your turn is already there, rewrite it rather than adding a
+                // second one beside it.
+                onSelect={() =>
+                  safe(() => runGeneration('impersonate', last?.role === 'user' ? last.id : undefined))()
+                }
                 disabled={!!streaming || !messages.length}
               >
                 <Wand2 />
