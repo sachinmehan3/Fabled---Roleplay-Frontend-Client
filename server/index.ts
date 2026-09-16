@@ -42,6 +42,7 @@ import './migrate-sqlite.ts'; // one-time import of an older data/rp.db, if one 
 import { seedStarterCharacter } from './seed.ts';
 import { isPng, normalizeCard, parseCardFile, type CharacterCard } from './cards.ts';
 import { buildPrompt, estimateTokens } from './prompt.ts';
+import { postProcess } from './post-process.ts';
 import { describeImage, listModels, streamChat, testChat, type StreamReport } from './llm.ts';
 
 const PORT = Number(process.env.PORT ?? 3001);
@@ -545,7 +546,9 @@ route('POST', '/api/chats/:id/generate', async ({ params, json, res }) => {
   saveLoreState(chat.id, lore.state); // sticky and cooldown are remembered per chat
 
   const built = buildPrompt(character.card, settings, history, getMemory(chat.id), lore.entries);
-  const { messages } = built;
+  // Reshaped before it is sent and before it is recorded, so the details panel
+  // shows what the provider actually received.
+  const messages = postProcess(built.messages, settings.promptFormat);
 
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -596,6 +599,7 @@ route('POST', '/api/chats/:id/generate', async ({ params, json, res }) => {
     maxTokens: settings.maxTokens,
     contextSize: settings.contextSize,
     thinkingLevel: settings.thinkingLevel,
+    promptFormat: settings.promptFormat,
     extrasDropped: report.extrasDropped,
     prompt: messages,
     systemSource: built.systemSource,

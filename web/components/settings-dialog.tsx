@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
-import type { Settings, ThinkingLevel } from '@/types';
+import type { PromptFormat, Settings, ThinkingLevel } from '@/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/dialog';
 import { AvatarPicker } from '@/components/avatar-picker';
 import { ModelCombobox } from '@/components/model-combobox';
+import { Select } from '@/components/ui/select';
 import { BackgroundPicker } from '@/components/background-picker';
 import { Field } from '@/components/form-field';
 
@@ -76,6 +77,26 @@ const THINKING: { value: ThinkingLevel; label: string }[] = [
   { value: 'low', label: 'Low' },
   { value: 'medium', label: 'Medium' },
   { value: 'high', label: 'High' },
+];
+
+const PROMPT_FORMATS: { value: PromptFormat; label: string; hint: string }[] = [
+  { value: 'none', label: 'Send as built', hint: 'What every OpenAI-compatible endpoint accepts.' },
+  { value: 'merge', label: 'Merge consecutive roles', hint: 'Folds runs of the same role into one message.' },
+  {
+    value: 'semi',
+    label: 'Alternating roles',
+    hint: 'One system block, then strictly alternating turns. Late instructions stay with the newest turn.',
+  },
+  {
+    value: 'strict',
+    label: 'Alternating, user first',
+    hint: 'As above, and the conversation opens with the user. For Anthropic-style APIs and Bedrock.',
+  },
+  {
+    value: 'single',
+    label: 'One user message',
+    hint: 'Flattens the whole prompt into a single turn. A last resort: the model can no longer tell who spoke.',
+  },
 ];
 
 export type SettingsTab = 'connection' | 'user' | 'customize' | 'generation' | 'prompt';
@@ -447,6 +468,18 @@ export function SettingsDialog({ open, onOpenChange, settings, onSaved, tab = 'c
                 few tokens; listing models costs nothing.
               </span>
             </div>
+
+            <Field
+              id="prompt-format"
+              label="Prompt post-processing"
+              hint={PROMPT_FORMATS.find((f) => f.value === form.promptFormat)?.hint}
+            >
+              <Select
+                value={form.promptFormat}
+                onChange={(v) => set('promptFormat', v as PromptFormat)}
+                options={PROMPT_FORMATS.map((f) => ({ value: f.value, label: f.label }))}
+              />
+            </Field>
 
             {(status.kind === 'ok' || status.kind === 'error') && (
               <div

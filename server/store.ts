@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { CharacterCard } from './cards.ts';
 import type { Lorebook, LoreState } from './lorebook.ts';
+import type { PromptFormat } from './post-process.ts';
 
 export const DATA_DIR = path.resolve(process.env.RP_DATA_DIR ?? 'data');
 export const AVATAR_DIR = path.join(DATA_DIR, 'avatars');
@@ -115,6 +116,8 @@ export interface Settings {
   maxTokens: number;
   contextSize: number;
   thinkingLevel: ThinkingLevel;
+  /** Reshapes the finished prompt for backends that demand a particular order. */
+  promptFormat: PromptFormat;
   /** Context tokens set aside for chat memory. 0 turns memory off entirely. */
   memoryTokens: number;
   chatBackground: string; // file name in data/avatars
@@ -134,6 +137,7 @@ export const DEFAULT_SETTINGS: Settings = {
   maxTokens: 400,
   contextSize: 8192,
   thinkingLevel: 'default',
+  promptFormat: 'none',
   memoryTokens: 800,
   chatBackground: '',
   chatBackgroundDim: 60,
@@ -365,6 +369,7 @@ export interface GenerationMeta {
   thinkingLevel: ThinkingLevel;
   /** The provider refused the optional fields, so they were sent without them. */
   extrasDropped?: boolean;
+  promptFormat?: PromptFormat;
   memoryTokens?: number;
   loreTokens?: number;
   loreEntries?: number;

@@ -10,6 +10,7 @@ A minimal, hackable roleplay chat frontend in the spirit of SillyTavern.
 - **Expandable profiles:** click any avatar or name to see the full card picture and its fields
 - **Swipes:** step through past replies, or press › on the latest reply to generate a new version
 - **Edit, copy, regenerate, delete (with confirmation) and Stop:** if you stop a reply midway, the partial text is kept
+- **Prompt post-processing** for backends that insist on one system block and alternating turns: merge, alternating, alternating-user-first, or flatten to a single message
 - **Prompt builder** with `{{char}}` / `{{user}}` macros, card system prompt override (`{{original}}`), post-history instructions and a context budget that drops the oldest messages first
 - **Model thinking:** reasoning is streamed into a fold-away panel above the reply, whether the provider sends it as `reasoning_content`, `reasoning` or `<think>` tags in the text
 - **Lorebooks:** World Info in the SillyTavern tradition - keyword and regex triggers, optional filters with AND ANY / AND ALL / NOT ANY / NOT ALL, constant and selective entries, recursion, inclusion groups, sticky / cooldown / delay, a token budget, and import of SillyTavern exports
@@ -112,6 +113,7 @@ server/
   migrate-sqlite.ts one-time import of an older data/rp.db
   cards.ts          PNG tEXt chunk reader, card normalization
   prompt.ts         prompt builder, macros, context trimming
+  post-process.ts   reshapes the finished prompt for fussy backends
   llm.ts            OpenAI-compatible streaming client
 web/
   App.tsx           app state + layout

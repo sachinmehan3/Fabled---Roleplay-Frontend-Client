@@ -127,6 +127,7 @@ export interface GenerationMeta {
   contextSize: number;
   thinkingLevel: ThinkingLevel;
   extrasDropped?: boolean;
+  promptFormat?: PromptFormat;
   memoryTokens?: number;
   loreTokens?: number;
   loreEntries?: number;
@@ -164,6 +165,7 @@ export interface Message {
 }
 
 export type ThinkingLevel = 'default' | 'low' | 'medium' | 'high';
+export type PromptFormat = 'none' | 'merge' | 'semi' | 'strict' | 'single';
 
 export interface Settings {
   apiBase: string;
@@ -176,6 +178,7 @@ export interface Settings {
   maxTokens: number;
   contextSize: number;
   thinkingLevel: ThinkingLevel;
+  promptFormat: PromptFormat;
   memoryTokens: number;
   chatBackground: string;
   chatBackgroundDim: number;
