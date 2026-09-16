@@ -76,7 +76,12 @@ export function ChatView({
     const el = inputRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
+    const max = parseFloat(getComputedStyle(el).maxHeight) || Infinity;
+    el.style.height = `${Math.min(el.scrollHeight, max)}px`;
+    // Only scroll once it has actually grown as far as it may. Otherwise a
+    // placeholder that wraps on a narrow screen leaves a scrollbar sitting in
+    // an empty box.
+    el.style.overflowY = el.scrollHeight > max ? 'auto' : 'hidden';
   }, [input]);
 
   // Keep the view pinned to the newest message unless the user scrolled up.
