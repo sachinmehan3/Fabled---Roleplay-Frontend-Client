@@ -138,8 +138,8 @@ export const MessageItem = memo(function MessageItem(p: Props) {
   // Every reply can be asked for another version, so every reply shows the count.
   const canSwipe = !!m && m.role === 'assistant';
   const atLastSwipe = !!m && m.swipe_index >= m.swipes.length - 1;
-  const total = m ? (p.streaming ? m.swipes.length + 1 : m.swipes.length) : 0;
-  const current = m ? (p.streaming ? total : m.swipe_index + 1) : 0;
+  const total = m?.swipes.length ?? 0;
+  const current = m ? m.swipe_index + 1 : 0;
   const time = m ? new Date(m.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
 
   const copy = async () => {
@@ -287,7 +287,7 @@ export const MessageItem = memo(function MessageItem(p: Props) {
           </div>
         )}
 
-        {canSwipe && !editing && !p.selecting && (
+        {canSwipe && !editing && !p.selecting && !p.streaming && (
           <div className="text-muted-foreground mt-1.5 -ml-2 flex items-center gap-0.5 text-xs">
             <Button
               variant="ghost"
