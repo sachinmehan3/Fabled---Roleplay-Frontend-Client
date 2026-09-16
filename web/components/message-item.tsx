@@ -198,7 +198,10 @@ export const MessageItem = memo(function MessageItem(p: Props) {
             <div
               className={cn(
                 'flex items-center gap-0.5 transition-opacity md:opacity-0 md:group-hover/msg:opacity-100 md:focus-within:opacity-100',
-                isUser ? 'mr-auto' : 'ml-auto',
+                // The character's row is full width, so its controls sit at the
+                // far end. Yours is only as wide as what you wrote, so they stay
+                // with your name instead of stranding themselves out to the left.
+                !isUser && 'ml-auto',
               )}
             >
               <IconAction label={copied ? 'Copied' : 'Copy'} onClick={copy}>
