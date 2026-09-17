@@ -202,17 +202,16 @@ export const MessageItem = memo(function MessageItem(p: Props) {
         ]
       : [];
 
-  // User messages mirror the assistant layout: avatar on the right, actions on the left.
+  // SillyTavern's own layout: the avatar is always on the left, whoever is
+  // speaking, with the name on top of it next to the avatar. The content
+  // column is padded on the right by the same amount the avatar takes on the
+  // left, so the block of text reads as centered rather than run to one edge.
   return (
     <article
       data-role={m?.role ?? 'assistant'}
       onClick={p.selecting ? p.onSelect : undefined}
       className={cn(
-        // A phone stacks the avatar into the header row instead of beside the
-        // bubble - a side column there was eating into the one thing a narrow
-        // screen has little of. From sm up, avatar and content sit side by side.
-        'group/msg flex flex-col gap-2 py-4 sm:flex-row sm:gap-4',
-        isUser && 'sm:flex-row-reverse',
+        'group/msg flex gap-3 py-4 sm:gap-4',
         p.selecting && 'cursor-pointer rounded-xl px-2 transition-colors',
         p.selecting && (p.selected ? 'bg-destructive/10' : 'hover:bg-accent/40'),
       )}
@@ -228,29 +227,16 @@ export const MessageItem = memo(function MessageItem(p: Props) {
           {p.selected && <Check className="size-3.5" />}
         </span>
       )}
-      {/* sm and up: a column beside the content, as before. */}
       <CharacterAvatar
         name={p.name}
         file={p.avatar}
-        className="hidden sm:mt-0.5 sm:block sm:size-12"
+        className="mt-0.5 size-12 rounded-none sm:size-14"
         onClick={p.onOpenProfile}
         label={`View ${p.name}'s card`}
       />
 
-      <div className="min-w-0 flex-1">
-        {/* Your side is only as wide as what you wrote. Keeping the controls and
-            the bubble in one column that shrinks to fit lines them up with each
-            other rather than with the page. */}
-        <div className={cn(isUser && 'flex flex-col sm:ml-auto sm:max-w-[92%]', isUser && (editing ? 'w-full' : 'sm:w-fit'))}>
-          <div className={cn('flex h-7 min-w-0 items-center gap-2', isUser && 'flex-row-reverse')}>
-          {/* Below sm: inline with the name, so nothing sits beside the bubble. */}
-          <CharacterAvatar
-            name={p.name}
-            file={p.avatar}
-            className="size-7 shrink-0 sm:hidden"
-            onClick={p.onOpenProfile}
-            label={`View ${p.name}'s card`}
-          />
+      <div className="min-w-0 flex-1 pr-12 sm:pr-14">
+        <div className="flex h-7 min-w-0 items-center gap-2">
           <button
             type="button"
             onClick={p.onOpenProfile}
@@ -265,7 +251,7 @@ export const MessageItem = memo(function MessageItem(p: Props) {
           {time && <span className="text-muted-foreground shrink-0 text-xs">{time}</span>}
 
           {actions.length > 0 && (
-            <div className={cn('flex shrink-0 items-center gap-0.5', isUser ? 'mr-auto' : 'ml-auto')}>
+            <div className="ml-auto flex shrink-0 items-center gap-0.5">
               {/* Phone widths: one trigger, the same actions listed in a menu beneath it. */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -273,7 +259,7 @@ export const MessageItem = memo(function MessageItem(p: Props) {
                     <Ellipsis />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align={isUser ? 'end' : 'start'} className="w-52">
+                <DropdownMenuContent align="end" className="w-52">
                   {actions.map((a) => (
                     <DropdownMenuItem key={a.key} variant={a.destructive ? 'destructive' : 'default'} onSelect={a.onClick}>
                       <a.icon />
@@ -315,7 +301,7 @@ export const MessageItem = memo(function MessageItem(p: Props) {
                 }
               }}
             />
-            <div className={cn('flex gap-2', isUser && 'justify-end')}>
+            <div className="flex gap-2">
               <Button
                 size="sm"
                 onClick={() => {
@@ -375,8 +361,7 @@ export const MessageItem = memo(function MessageItem(p: Props) {
               <TooltipContent>{atLastSwipe ? 'Generate another version' : 'Next version'}</TooltipContent>
             </Tooltip>
           </div>
-          )}
-        </div>
+        )}
       </div>
     </article>
   );
