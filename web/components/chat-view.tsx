@@ -439,10 +439,6 @@ export function ChatView({
                 <Wand2 />
                 Impersonate
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setMemoryOpen(true)}>
-                <Brain />
-                Chat memory
-              </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setSelection([])} disabled={!messages.length}>
                 <Trash2 />
                 Delete messages
