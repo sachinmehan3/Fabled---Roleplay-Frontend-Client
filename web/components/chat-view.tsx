@@ -276,7 +276,7 @@ export function ChatView({
           stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
         }}
       >
-        <div className="mx-auto w-full max-w-3xl px-4 pt-14 pb-6 md:pt-8">
+        <div className="mx-auto w-full max-w-4xl px-4 pt-14 pb-6 md:pt-8">
           {card.scenario && (
             <div className="bg-muted/40 text-muted-foreground mb-4 rounded-xl border border-dashed px-4 py-3 text-sm">
               <span className="text-foreground mr-1.5 font-medium">Scenario</span>
@@ -350,7 +350,7 @@ export function ChatView({
       </div>
 
       {/* Composer: one line until what you write needs more. */}
-      <div className="relative z-10 mx-auto w-full max-w-3xl px-4 pb-4">
+      <div className="relative z-10 mx-auto w-full max-w-4xl px-4 pb-4">
         {selection !== null && (
           <div className="bg-card mb-2 flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 shadow-sm">
             <span className="min-w-0 flex-1 text-sm">

@@ -203,9 +203,10 @@ export const MessageItem = memo(function MessageItem(p: Props) {
       : [];
 
   // SillyTavern's own layout: the avatar is always on the left, whoever is
-  // speaking, with the name on top of it next to the avatar. The content
-  // column is padded on the right by the same amount the avatar takes on the
-  // left, so the block of text reads as centered rather than run to one edge.
+  // speaking, with the name on top of it next to the avatar. The right edge
+  // gets only a small fixed inset (SillyTavern uses 30px, regardless of its
+  // avatar size) rather than one that mirrors the avatar's width - that was
+  // eating into the line length for no reason a real chat line wrap needs.
   return (
     <article
       data-role={m?.role ?? 'assistant'}
@@ -235,7 +236,7 @@ export const MessageItem = memo(function MessageItem(p: Props) {
         label={`View ${p.name}'s card`}
       />
 
-      <div className="min-w-0 flex-1 pr-12 sm:pr-14">
+      <div className="min-w-0 flex-1 pr-8">
         <div className="flex h-7 min-w-0 items-center gap-2">
           <button
             type="button"
