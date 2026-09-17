@@ -168,7 +168,7 @@ export function AppSidebar(p: Props) {
                         variant="ghost"
                         size="icon-xs"
                         aria-label={`Options for ${c.name}`}
-                        className="absolute top-1/2 right-1.5 -translate-y-1/2 md:opacity-0 md:group-hover/item:opacity-100 md:focus-visible:opacity-100 md:data-[state=open]:opacity-100"
+                        className="absolute top-1/2 right-1.5 -translate-y-1/2 hover-capable:opacity-0 hover-capable:group-hover/item:opacity-100 hover-capable:focus-visible:opacity-100 hover-capable:data-[state=open]:opacity-100"
                       >
                         <Ellipsis />
                       </Button>
@@ -266,11 +266,11 @@ export function AppSidebar(p: Props) {
                             <MessageSquare className="text-muted-foreground size-4 shrink-0" />
                           )}
                           <span className="min-w-0 flex-1 truncate">{named || byDate}</span>
-                          <span className="text-muted-foreground text-xs tabular-nums max-md:hidden md:group-hover/item:opacity-0">
+                          <span className="text-muted-foreground text-xs tabular-nums max-md:hidden hover-capable:group-hover/item:opacity-0">
                             {c.message_count ?? 0}
                           </span>
                         </button>
-                        <div className="absolute top-1/2 right-1.5 flex -translate-y-1/2 items-center md:opacity-0 md:group-hover/item:opacity-100 md:focus-within:opacity-100">
+                        <div className="absolute top-1/2 right-1.5 flex -translate-y-1/2 items-center hover-capable:opacity-0 hover-capable:group-hover/item:opacity-100 hover-capable:focus-within:opacity-100">
                           <Button variant="ghost" size="icon-xs" aria-label="Rename chat" onClick={startRename}>
                             <Pencil />
                           </Button>

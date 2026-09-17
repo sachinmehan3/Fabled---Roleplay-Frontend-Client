@@ -111,7 +111,7 @@ export function CharacterGallery({
                     </button>
 
                     {/* Siblings of the tile rather than inside it: a button cannot hold buttons. */}
-                    <div className="absolute top-1.5 right-1.5 flex gap-1 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
+                    <div className="absolute top-1.5 right-1.5 flex gap-1 transition-opacity hover-capable:opacity-0 hover-capable:group-hover:opacity-100 hover-capable:focus-within:opacity-100">
                       <Button
                         variant="secondary"
                         size="icon-xs"

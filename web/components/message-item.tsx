@@ -256,7 +256,7 @@ export const MessageItem = memo(function MessageItem(p: Props) {
               {/* Phone widths: one trigger, the same actions listed in a menu beneath it. */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon-xs" aria-label="Message actions" className="text-muted-foreground md:hidden">
+                  <Button variant="ghost" size="icon-xs" aria-label="Message actions" className="text-muted-foreground hover-capable:hidden">
                     <Ellipsis />
                   </Button>
                 </DropdownMenuTrigger>
@@ -271,7 +271,7 @@ export const MessageItem = memo(function MessageItem(p: Props) {
               </DropdownMenu>
 
               {/* Wider screens: the row itself, revealed on hover. */}
-              <div className="hidden items-center gap-0.5 transition-opacity md:flex md:opacity-0 md:group-hover/msg:opacity-100 md:focus-within:opacity-100">
+              <div className="hidden items-center gap-0.5 transition-opacity hover-capable:flex hover-capable:opacity-0 hover-capable:group-hover/msg:opacity-100 hover-capable:focus-within:opacity-100">
                 {actions.map((a) => (
                   <IconAction key={a.key} label={a.label} onClick={a.onClick} className={a.destructive ? 'hover:text-destructive' : undefined}>
                     <a.icon />
