@@ -7,12 +7,14 @@ import {
   ChevronRight,
   ChevronRight as Caret,
   Copy,
+  Ellipsis,
   GitBranch,
   LoaderCircle,
   Pencil,
   RefreshCw,
   Trash2,
   Wand2,
+  type LucideIcon,
 } from 'lucide-react';
 import type { Message } from '@/types';
 import { renderMarkdown } from '@/markdown';
@@ -20,6 +22,12 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { CharacterAvatar } from '@/components/character-avatar';
 
 interface Props {
@@ -133,6 +141,14 @@ function IconAction({
   );
 }
 
+interface MessageAction {
+  key: string;
+  label: string;
+  icon: LucideIcon;
+  onClick?: () => void;
+  destructive?: boolean;
+}
+
 export const MessageItem = memo(function MessageItem(p: Props) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
@@ -154,13 +170,45 @@ export const MessageItem = memo(function MessageItem(p: Props) {
     setTimeout(() => setCopied(false), 1200);
   };
 
+  // What you can do with a message, shown as a hover row on wide screens and
+  // collapsed into one menu on narrow ones - stacking that many icons next to
+  // the avatar on a phone is what broke the layout there.
+  const actions: MessageAction[] =
+    m && !editing && !p.busy && !p.selecting
+      ? [
+          { key: 'copy', label: copied ? 'Copied' : 'Copy', icon: copied ? Check : Copy, onClick: copy },
+          {
+            key: 'edit',
+            label: 'Edit',
+            icon: Pencil,
+            onClick: () => {
+              setDraft(m.swipes[m.swipe_index] ?? '');
+              setEditing(true);
+            },
+          },
+          ...(m.role === 'assistant'
+            ? [{ key: 'details', label: 'Generation details', icon: Activity, onClick: p.onOpenDetails }]
+            : []),
+          ...(m.role === 'assistant'
+            ? [{ key: 'regenerate', label: 'Regenerate', icon: RefreshCw, onClick: p.onRegenerate }]
+            : []),
+          ...(isUser && p.onImpersonate
+            ? [{ key: 'impersonate', label: 'Write this message for me', icon: Wand2, onClick: p.onImpersonate }]
+            : []),
+          ...(m.role === 'assistant' && p.onBranch
+            ? [{ key: 'branch', label: 'Branch a new chat from here', icon: GitBranch, onClick: p.onBranch }]
+            : []),
+          { key: 'delete', label: 'Delete', icon: Trash2, onClick: p.onDelete, destructive: true },
+        ]
+      : [];
+
   // User messages mirror the assistant layout: avatar on the right, actions on the left.
   return (
     <article
       data-role={m?.role ?? 'assistant'}
       onClick={p.selecting ? p.onSelect : undefined}
       className={cn(
-        'group/msg flex gap-4 py-4',
+        'group/msg flex gap-3 py-4 sm:gap-4',
         isUser && 'flex-row-reverse',
         p.selecting && 'cursor-pointer rounded-xl px-2 transition-colors',
         p.selecting && (p.selected ? 'bg-destructive/10' : 'hover:bg-accent/40'),
@@ -180,7 +228,7 @@ export const MessageItem = memo(function MessageItem(p: Props) {
       <CharacterAvatar
         name={p.name}
         file={p.avatar}
-        className="mt-0.5 size-12"
+        className="mt-0.5 size-10 sm:size-12"
         onClick={p.onOpenProfile}
         label={`View ${p.name}'s card`}
       />
@@ -189,63 +237,48 @@ export const MessageItem = memo(function MessageItem(p: Props) {
         {/* Your side is only as wide as what you wrote. Keeping the controls and
             the bubble in one column that shrinks to fit lines them up with each
             other rather than with the page. */}
-        <div className={cn(isUser && 'ml-auto flex max-w-[92%] flex-col', isUser && (editing ? 'w-full' : 'w-fit'))}>
-          <div className={cn('flex h-7 items-center gap-2', isUser && 'flex-row-reverse')}>
+        <div className={cn(isUser && 'flex flex-col sm:ml-auto sm:max-w-[92%]', isUser && (editing ? 'w-full' : 'sm:w-fit'))}>
+          <div className={cn('flex h-7 min-w-0 items-center gap-2', isUser && 'flex-row-reverse')}>
           <button
             type="button"
             onClick={p.onOpenProfile}
             disabled={!p.onOpenProfile}
             className={cn(
-              'text-sm font-semibold outline-none enabled:hover:underline disabled:cursor-default',
+              'min-w-0 truncate text-sm font-semibold outline-none enabled:hover:underline disabled:cursor-default',
               !isUser && 'text-primary',
             )}
           >
             {p.name}
           </button>
-          {time && <span className="text-muted-foreground text-xs">{time}</span>}
+          {time && <span className="text-muted-foreground shrink-0 text-xs">{time}</span>}
 
-          {m && !editing && !p.busy && !p.selecting && (
-            <div
-              className={cn(
-                'flex items-center gap-0.5 transition-opacity md:opacity-0 md:group-hover/msg:opacity-100 md:focus-within:opacity-100',
-                isUser ? 'mr-auto' : 'ml-auto',
-              )}
-            >
-              <IconAction label={copied ? 'Copied' : 'Copy'} onClick={copy}>
-                {copied ? <Check /> : <Copy />}
-              </IconAction>
-              <IconAction
-                label="Edit"
-                onClick={() => {
-                  setDraft(m.swipes[m.swipe_index] ?? '');
-                  setEditing(true);
-                }}
-              >
-                <Pencil />
-              </IconAction>
-              {m.role === 'assistant' && (
-                <IconAction label="Generation details" onClick={p.onOpenDetails}>
-                  <Activity />
-                </IconAction>
-              )}
-              {m.role === 'assistant' && (
-                <IconAction label="Regenerate" onClick={p.onRegenerate}>
-                  <RefreshCw />
-                </IconAction>
-              )}
-              {isUser && p.onImpersonate && (
-                <IconAction label="Write this message for me" onClick={p.onImpersonate}>
-                  <Wand2 />
-                </IconAction>
-              )}
-              {m.role === 'assistant' && p.onBranch && (
-                <IconAction label="Branch a new chat from here" onClick={p.onBranch}>
-                  <GitBranch />
-                </IconAction>
-              )}
-              <IconAction label="Delete" onClick={p.onDelete} className="hover:text-destructive">
-                <Trash2 />
-              </IconAction>
+          {actions.length > 0 && (
+            <div className={cn('flex shrink-0 items-center gap-0.5', isUser ? 'mr-auto' : 'ml-auto')}>
+              {/* Phone widths: one trigger, the same actions listed in a menu beneath it. */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon-xs" aria-label="Message actions" className="text-muted-foreground md:hidden">
+                    <Ellipsis />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align={isUser ? 'end' : 'start'} className="w-52">
+                  {actions.map((a) => (
+                    <DropdownMenuItem key={a.key} variant={a.destructive ? 'destructive' : 'default'} onSelect={a.onClick}>
+                      <a.icon />
+                      {a.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Wider screens: the row itself, revealed on hover. */}
+              <div className="hidden items-center gap-0.5 transition-opacity md:flex md:opacity-0 md:group-hover/msg:opacity-100 md:focus-within:opacity-100">
+                {actions.map((a) => (
+                  <IconAction key={a.key} label={a.label} onClick={a.onClick} className={a.destructive ? 'hover:text-destructive' : undefined}>
+                    <a.icon />
+                  </IconAction>
+                ))}
+              </div>
             </div>
           )}
         </div>
