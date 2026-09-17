@@ -1,8 +1,14 @@
 import { useEffect, useState, type CSSProperties } from 'react';
-import { Pencil, Plus, Search, Trash2, Upload } from 'lucide-react';
+import { Ellipsis, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react';
 import type { Character } from '@/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import {
   Dialog,
@@ -111,26 +117,28 @@ export function CharacterGallery({
                     </button>
 
                     {/* Siblings of the tile rather than inside it: a button cannot hold buttons. */}
-                    <div className="absolute top-1.5 right-1.5 flex gap-1 transition-opacity hover-capable:opacity-0 hover-capable:group-hover:opacity-100 hover-capable:focus-within:opacity-100">
-                      <Button
-                        variant="secondary"
-                        size="icon-xs"
-                        aria-label={`Edit ${c.name}`}
-                        onClick={() => onEdit(c.id)}
-                        className="shadow-sm"
-                      >
-                        <Pencil />
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="icon-xs"
-                        aria-label={`Delete ${c.name}`}
-                        onClick={() => onDelete(c.id)}
-                        className="hover:text-destructive shadow-sm"
-                      >
-                        <Trash2 />
-                      </Button>
-                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="secondary"
+                          size="icon-xs"
+                          aria-label={`Options for ${c.name}`}
+                          className="absolute top-1.5 right-1.5 shadow-sm"
+                        >
+                          <Ellipsis />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40">
+                        <DropdownMenuItem onSelect={() => onEdit(c.id)}>
+                          <Pencil />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem variant="destructive" onSelect={() => onDelete(c.id)}>
+                          <Trash2 />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </li>
                 );
               })}

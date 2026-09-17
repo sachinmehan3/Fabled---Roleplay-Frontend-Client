@@ -168,7 +168,7 @@ export function AppSidebar(p: Props) {
                         variant="ghost"
                         size="icon-xs"
                         aria-label={`Options for ${c.name}`}
-                        className="absolute top-1/2 right-1.5 -translate-y-1/2 hover-capable:opacity-0 hover-capable:group-hover/item:opacity-100 hover-capable:focus-visible:opacity-100 hover-capable:data-[state=open]:opacity-100"
+                        className="absolute top-1/2 right-1.5 -translate-y-1/2"
                       >
                         <Ellipsis />
                       </Button>
@@ -256,7 +256,7 @@ export function AppSidebar(p: Props) {
                           aria-current={active || undefined}
                           title={active ? 'Click again to rename' : undefined}
                           className={cn(
-                            'hover:bg-sidebar-accent focus-visible:ring-ring/50 flex h-9 w-full items-center gap-2.5 rounded-lg px-2 pr-16 text-left text-sm outline-none focus-visible:ring-[3px]',
+                            'hover:bg-sidebar-accent focus-visible:ring-ring/50 flex h-9 w-full items-center gap-2.5 rounded-lg px-2 pr-9 text-left text-sm outline-none focus-visible:ring-[3px]',
                             active && 'bg-sidebar-accent font-medium',
                           )}
                         >
@@ -266,24 +266,32 @@ export function AppSidebar(p: Props) {
                             <MessageSquare className="text-muted-foreground size-4 shrink-0" />
                           )}
                           <span className="min-w-0 flex-1 truncate">{named || byDate}</span>
-                          <span className="text-muted-foreground text-xs tabular-nums max-md:hidden hover-capable:group-hover/item:opacity-0">
+                          <span className="text-muted-foreground text-xs tabular-nums">
                             {c.message_count ?? 0}
                           </span>
                         </button>
-                        <div className="absolute top-1/2 right-1.5 flex -translate-y-1/2 items-center hover-capable:opacity-0 hover-capable:group-hover/item:opacity-100 hover-capable:focus-within:opacity-100">
-                          <Button variant="ghost" size="icon-xs" aria-label="Rename chat" onClick={startRename}>
-                            <Pencil />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-xs"
-                            aria-label="Delete chat"
-                            onClick={() => p.onDeleteChat(c.id)}
-                            className="hover:text-destructive"
-                          >
-                            <Trash2 />
-                          </Button>
-                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              aria-label="Chat options"
+                              className="absolute top-1/2 right-1.5 -translate-y-1/2"
+                            >
+                              <Ellipsis />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" side="right" className="w-40">
+                            <DropdownMenuItem onSelect={startRename}>
+                              <Pencil />
+                              Rename
+                            </DropdownMenuItem>
+                            <DropdownMenuItem variant="destructive" onSelect={() => p.onDeleteChat(c.id)}>
+                              <Trash2 />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </>
                     )}
                   </li>

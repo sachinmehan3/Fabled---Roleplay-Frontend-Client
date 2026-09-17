@@ -1,4 +1,4 @@
-import { memo, useMemo, useState, type ReactNode } from 'react';
+import { memo, useMemo, useState } from 'react';
 import {
   Activity,
   Brain,
@@ -118,29 +118,6 @@ function Thinking({
   );
 }
 
-function IconAction({
-  label,
-  onClick,
-  children,
-  className,
-}: {
-  label: string;
-  onClick?: () => void;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button variant="ghost" size="icon-xs" aria-label={label} onClick={onClick} className={cn('text-muted-foreground', className)}>
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
-  );
-}
-
 interface MessageAction {
   key: string;
   label: string;
@@ -170,9 +147,7 @@ export const MessageItem = memo(function MessageItem(p: Props) {
     setTimeout(() => setCopied(false), 1200);
   };
 
-  // What you can do with a message, shown as a hover row on wide screens and
-  // collapsed into one menu on narrow ones - stacking that many icons next to
-  // the avatar on a phone is what broke the layout there.
+  // What you can do with a message, behind one menu at every width.
   const actions: MessageAction[] =
     m && !editing && !p.busy && !p.selecting
       ? [
@@ -253,10 +228,9 @@ export const MessageItem = memo(function MessageItem(p: Props) {
 
           {actions.length > 0 && (
             <div className="ml-auto flex shrink-0 items-center gap-0.5">
-              {/* Phone widths: one trigger, the same actions listed in a menu beneath it. */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon-xs" aria-label="Message actions" className="text-muted-foreground hover-capable:hidden">
+                  <Button variant="ghost" size="icon-xs" aria-label="Message actions" className="text-muted-foreground">
                     <Ellipsis />
                   </Button>
                 </DropdownMenuTrigger>
@@ -269,15 +243,6 @@ export const MessageItem = memo(function MessageItem(p: Props) {
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-
-              {/* Wider screens: the row itself, revealed on hover. */}
-              <div className="hidden items-center gap-0.5 transition-opacity hover-capable:flex hover-capable:opacity-0 hover-capable:group-hover/msg:opacity-100 hover-capable:focus-within:opacity-100">
-                {actions.map((a) => (
-                  <IconAction key={a.key} label={a.label} onClick={a.onClick} className={a.destructive ? 'hover:text-destructive' : undefined}>
-                    <a.icon />
-                  </IconAction>
-                ))}
-              </div>
             </div>
           )}
         </div>
