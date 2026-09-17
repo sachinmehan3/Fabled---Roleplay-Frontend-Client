@@ -285,6 +285,16 @@ export function ChatView({
           <CharacterAvatar name={character.name} file={character.avatar} className="size-7" />
           <span className="truncate text-sm font-semibold">{character.name}</span>
         </button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground ml-auto"
+          onClick={() => setMemoryOpen(true)}
+          aria-label="Chat memory"
+        >
+          <Brain />
+          <span className="max-sm:hidden">Memory</span>
+        </Button>
       </header>
 
       {/* Messages */}
