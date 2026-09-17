@@ -208,8 +208,11 @@ export const MessageItem = memo(function MessageItem(p: Props) {
       data-role={m?.role ?? 'assistant'}
       onClick={p.selecting ? p.onSelect : undefined}
       className={cn(
-        'group/msg flex gap-3 py-4 sm:gap-4',
-        isUser && 'flex-row-reverse',
+        // A phone stacks the avatar into the header row instead of beside the
+        // bubble - a side column there was eating into the one thing a narrow
+        // screen has little of. From sm up, avatar and content sit side by side.
+        'group/msg flex flex-col gap-2 py-4 sm:flex-row sm:gap-4',
+        isUser && 'sm:flex-row-reverse',
         p.selecting && 'cursor-pointer rounded-xl px-2 transition-colors',
         p.selecting && (p.selected ? 'bg-destructive/10' : 'hover:bg-accent/40'),
       )}
@@ -225,10 +228,11 @@ export const MessageItem = memo(function MessageItem(p: Props) {
           {p.selected && <Check className="size-3.5" />}
         </span>
       )}
+      {/* sm and up: a column beside the content, as before. */}
       <CharacterAvatar
         name={p.name}
         file={p.avatar}
-        className="mt-0.5 size-10 sm:size-12"
+        className="hidden sm:mt-0.5 sm:block sm:size-12"
         onClick={p.onOpenProfile}
         label={`View ${p.name}'s card`}
       />
@@ -239,6 +243,14 @@ export const MessageItem = memo(function MessageItem(p: Props) {
             other rather than with the page. */}
         <div className={cn(isUser && 'flex flex-col sm:ml-auto sm:max-w-[92%]', isUser && (editing ? 'w-full' : 'sm:w-fit'))}>
           <div className={cn('flex h-7 min-w-0 items-center gap-2', isUser && 'flex-row-reverse')}>
+          {/* Below sm: inline with the name, so nothing sits beside the bubble. */}
+          <CharacterAvatar
+            name={p.name}
+            file={p.avatar}
+            className="size-7 shrink-0 sm:hidden"
+            onClick={p.onOpenProfile}
+            label={`View ${p.name}'s card`}
+          />
           <button
             type="button"
             onClick={p.onOpenProfile}
