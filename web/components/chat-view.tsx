@@ -70,6 +70,10 @@ export function ChatView({
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const stickToBottom = useRef(true);
+  // Phones only: the header slides away while you scroll down and comes back
+  // as soon as you scroll up, so reading gets the whole screen.
+  const [headerHidden, setHeaderHidden] = useState(false);
+  const lastScrollTop = useRef(0);
 
   const reload = useCallback(async () => {
     setMessages(await api.listMessages(chatId));
@@ -257,15 +261,31 @@ export function ChatView({
           <div className="bg-background absolute inset-0" style={{ opacity: settings.chatBackgroundDim / 100 }} />
         </div>
       )}
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        className={cn('text-muted-foreground absolute top-3 left-3 z-20', !sidebarCollapsed && 'md:hidden')}
-        onClick={onOpenSidebar}
-        aria-label="Open sidebar"
+      <header
+        className={cn(
+          'bg-background/85 border-border/60 z-20 flex h-12 shrink-0 items-center gap-2 border-b px-3 backdrop-blur',
+          'max-md:absolute max-md:inset-x-0 max-md:top-0 transition-transform duration-200 motion-reduce:transition-none',
+          headerHidden && 'max-md:-translate-y-full',
+        )}
       >
-        <PanelLeft />
-      </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className={cn('text-muted-foreground', !sidebarCollapsed && 'md:hidden')}
+          onClick={onOpenSidebar}
+          aria-label="Open sidebar"
+        >
+          <PanelLeft />
+        </Button>
+        <button
+          type="button"
+          onClick={() => setProfile('character')}
+          className="flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5 outline-none hover:opacity-80 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        >
+          <CharacterAvatar name={character.name} file={character.avatar} className="size-7" />
+          <span className="truncate text-sm font-semibold">{character.name}</span>
+        </button>
+      </header>
 
       {/* Messages */}
       <div
@@ -274,9 +294,14 @@ export function ChatView({
         onScroll={(e) => {
           const el = e.currentTarget;
           stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+          const delta = el.scrollTop - lastScrollTop.current;
+          lastScrollTop.current = el.scrollTop;
+          if (el.scrollTop < 48) setHeaderHidden(false);
+          else if (delta > 4) setHeaderHidden(true);
+          else if (delta < -4) setHeaderHidden(false);
         }}
       >
-        <div className="mx-auto w-full max-w-4xl px-4 pt-14 pb-6 md:pt-8">
+        <div className="mx-auto w-full max-w-4xl px-4 pt-16 pb-6 md:pt-6">
           {card.scenario && (
             <div className="bg-muted/40 text-muted-foreground mb-4 rounded-xl border border-dashed px-4 py-3 text-sm">
               <span className="text-foreground mr-1.5 font-medium">Scenario</span>
