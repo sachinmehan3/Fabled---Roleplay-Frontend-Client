@@ -230,7 +230,7 @@ export const MessageItem = memo(function MessageItem(p: Props) {
       <CharacterAvatar
         name={p.name}
         file={p.avatar}
-        className="mt-0.5 size-12 rounded-none sm:size-14"
+        className="mt-0.5 size-12 sm:size-14"
         onClick={p.onOpenProfile}
         label={`View ${p.name}'s card`}
       />
