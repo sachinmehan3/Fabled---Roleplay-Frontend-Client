@@ -121,7 +121,7 @@ export function MemoryDialog({ open, onOpenChange, chatId, characterName }: Prop
           </div>
         </div>
 
-        <DialogFooter className="flex-row items-center border-t px-6 py-4 sm:justify-between">
+        <DialogFooter className="flex-col gap-2 border-t px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex gap-2">
             <Button type="button" variant="outline" size="sm" onClick={summariseNow} disabled={busy}>
               {folding ? <LoaderCircle className="animate-spin" /> : <RefreshCw />}
